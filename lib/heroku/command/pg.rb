@@ -79,7 +79,7 @@ module Heroku::Command
     end
 
     def psql
-      bifrost_client.ingress(@database_name) rescue nil
+      bifrost_client.ingress(@database_name)
       ENV["PGPASSWORD"] = @database_password
       cmd = "psql -U #{@database_user} -h #{@database_host} #{@database_name}"
       display("Connecting to database for app #{app} ...")

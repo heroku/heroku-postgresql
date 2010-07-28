@@ -6,9 +6,8 @@ module HerokuPostgresql
       @bifrost_host = ENV["BIFROST_HOST"] || "https://bifrost-phoenix.heroku.com"
       @database_user = database_user
       @database_password = database_password
-      puts "#{@bifrost_resource} = RestClient::Resource.new( '#{@bifrost_host}:3000/client', :user => '#{@database_user}', :password => '#{@database_password}', :headers => {:heroku_client_version => Version})"
       @bifrost_resource = RestClient::Resource.new(
-        "#{@bifrost_host}:3000/client",
+        "#{@bifrost_host}/client",
         :user => @database_user,
         :password => @database_password,
         :headers => {:heroku_client_version => Version})
@@ -59,9 +58,9 @@ module HerokuPostgresql
       end
     end
 
-    def http_put(resource, path, data = "")
+    def http_put(resource, path)
       checking_client_version do
-        sym_keys(JSON.parse(resource[path].put(data).to_s))
+        sym_keys(JSON.parse(resource[path].put.to_s))
       end
     end
   end
