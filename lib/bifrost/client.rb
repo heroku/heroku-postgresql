@@ -1,6 +1,6 @@
 module Bifrost
   class Client
-    Version = 1
+    Version = 2
 
     def initialize(database_user, database_password)
       @bifrost_host = ENV["BIFROST_HOST"] || "https://bifrost-phoenix.heroku.com"

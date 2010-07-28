@@ -25,8 +25,13 @@ module Heroku::Command
 
     def info
       database = bifrost_client.get_database(@database_name)
-      display("state: #{database[:state]}")
-      display("url:   #{@bifrost_url}")
+      display("=== #{app} postgres db")
+      display("State:          #{database[:state]} for " +
+                               "#{delta_format(Time.parse(database[:state_updated_at]))}")
+      display("Data size:      #{size_format(database[:num_bytes])} in " +
+                              "#{database[:num_tables]} table#{database[:num_tables] == 1 ? "" : "s"}")
+      display("URL:            #{@bifrost_url}")
+      display("Born:           #{time_format(database[:created_at])}")
     end
 
     def wait
@@ -92,6 +97,47 @@ module Heroku::Command
 
     def redisplay(line, line_break = false)
       display("\r\e[0K#{line}", line_break)
+    end
+
+    def delta_format(start, finish = Time.now)
+      secs = (finish.to_i - start.to_i).abs
+      mins = (secs/60).round
+      hours = (mins / 60).round
+      days = (hours / 24).round
+      weeks = (days / 7).round
+      months = (weeks / 4.3).round
+      years = (months / 12).round
+      if years > 0
+        "#{years} yr"
+      elsif months > 0
+        "#{months} mo"
+      elsif weeks > 0
+        "#{weeks} wk"
+      elsif days > 0
+        "#{days}d"
+      elsif hours > 0
+        "#{hours}h"
+      elsif mins > 0
+        "#{mins}m"
+      else
+        "#{secs}s"
+      end
+    end
+
+    KB = 1024
+    MB = 1024 * KB
+    GB = 1024 * MB
+
+    def size_format(bytes)
+      return "#{bytes}B" if bytes < KB
+      return "#{(bytes / KB).round}K" if bytes < MB
+      return "#{(bytes / MB).round}M" if bytes < GB
+      return "#{(bytes / GB).round}G"
+    end
+
+    def time_format(time)
+      time = Time.parse(time) if time.is_a?(String)
+      time.strftime("%Y-%m-%d %H:%M %Z")
     end
   end
 end
