@@ -3,22 +3,22 @@ module HerokuPostgresql
     Version = 2
 
     def initialize(database_user, database_password)
-      @bifrost_host = ENV["BIFROST_HOST"] || "https://bifrost-phoenix.heroku.com"
+      @heroku_postgresql_host = ENV["HEROKU_POSTGRESQL_HOST"] || "https://shogun.heroku.com"
       @database_user = database_user
       @database_password = database_password
-      @bifrost_resource = RestClient::Resource.new(
-        "#{@bifrost_host}/client",
+      @heroku_postgresql_resource = RestClient::Resource.new(
+        "#{@heroku_postgresql_host}/client",
         :user => @database_user,
         :password => @database_password,
         :headers => {:heroku_client_version => Version})
     end
 
     def ingress(database_name)
-      http_put(@bifrost_resource, "databases/#{database_name}/ingress")
+      http_put("databases/#{database_name}/ingress")
     end
 
     def get_database(database_name)
-      http_get(@bifrost_resource, "databases/#{database_name}")
+      http_get("databases/#{database_name}")
     end
 
     protected
@@ -46,21 +46,21 @@ module HerokuPostgresql
       end
     end
 
-    def http_get(resource, path)
+    def http_get(path)
       checking_client_version do
-        sym_keys(JSON.parse(resource[path].get.to_s))
+        sym_keys(JSON.parse(@heroku_postgresql_resource[path].get.to_s))
       end
     end
 
-    def http_post(resource, payload, path)
+    def http_post(path, payload = {})
       checking_client_version do
-        sym_keys(JSON.parse(resource[path].post(payload.to_json).to_s))
+        sym_keys(JSON.parse(@heroku_postgresql_resource[path].post(payload.to_json).to_s))
       end
     end
 
-    def http_put(resource, path)
+    def http_put(path, payload = {})
       checking_client_version do
-        sym_keys(JSON.parse(resource[path].put.to_s))
+        sym_keys(JSON.parse(@heroku_postgresql_resource[path].put(payload.to_json).to_s))
       end
     end
   end
