@@ -88,7 +88,7 @@ module Heroku::Command
     protected
 
     def bifrost_client
-      ::Bifrost::Client.new(@database_user, @database_password)
+      ::HerokuPostgresql::Client.new(@database_user, @database_password)
     end
 
     def spinner(ticks)
