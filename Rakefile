@@ -1,4 +1,4 @@
-FOLDER = "~/.heroku/plugins/heroku-bifrost"
+FOLDER = "~/.heroku/plugins/heroku-postgresql"
 
 desc "Install via copy"
 task :install do

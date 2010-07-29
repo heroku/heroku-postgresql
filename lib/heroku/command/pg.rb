@@ -1,11 +1,11 @@
 module Heroku::Command
-  class Bifrost < BaseWithApp
-    Help.group("Bifrost") do |group|
-      group.command "bifrost:info",   "show database status"
-      group.command "bifrost:wait",   "wait for database to come online"
-      group.command "bifrost:attach", "use Bifrost database as DATABASE_URL"
-      group.command "bifrost:detach", "revert to using shared Postgres database"
-      group.command "bifrost:psql",   "open a psql shell to the database"
+  class Pg < BaseWithApp
+    Help.group("heroku-postgresql") do |group|
+      group.command "pg:info",   "show database status"
+      group.command "pg:wait",   "wait for database to come online"
+      group.command "pg:attach", "use heroku-postgresql database as DATABASE_URL"
+      group.command "pg:detach", "revert to using shared Postgres database"
+      group.command "pg:psql",   "open a psql shell to the database"
     end
 
     def initialize(*args)
@@ -14,7 +14,7 @@ module Heroku::Command
       @bifrost_url = ENV["BIFROST_URL"] || @config_vars["BIFROST_URL"]
       @database_url = @config_vars["DATABASE_URL"]
       if !@bifrost_url
-        abort("Bifrost is not installed for the app #{app}")
+        abort("The addon is not installed for the app #{app}")
       end
       uri = URI.parse(@bifrost_url)
       @database_user =     uri.user
@@ -25,7 +25,7 @@ module Heroku::Command
 
     def info
       database = bifrost_client.get_database(@database_name)
-      display("=== #{app} postgres db")
+      display("=== #{app} heroku-postgresql database")
       display("State:          #{database[:state]} for " +
                                "#{delta_format(Time.parse(database[:state_updated_at]))}")
       display("Data size:      #{size_format(database[:num_bytes])} in " +
@@ -58,9 +58,9 @@ module Heroku::Command
 
     def attach
       if @database_url == @bifrost_url
-        display("Bifrost database is already attached to app #{app}")
+        display("The database is already attached to app #{app}")
       else
-        display("Attatching Bifrost database to app #{app} ... ", false)
+        display("Attatching database to app #{app} ... ", false)
         res = heroku.add_config_vars(app, {"DATABASE_URL" => @bifrost_url})
         display("done")
       end
@@ -68,11 +68,11 @@ module Heroku::Command
 
     def detach
       if @database_url.nil?
-        display("Bifrost database is not attached to app #{app}")
+        display("A heroku-postgresql database is not attached to app #{app}")
       elsif @database_url != @bifrost_url
-        display("Database attached to app #{app} is not a Bifrost database")
+        display("Database attached to app #{app} is not a heroku-postgresql database")
       else
-        display("Detatching Bifrost database from app #{app} ... ", false)
+        display("Detatching database from app #{app} ... ", false)
         res = heroku.remove_config_var(app, "DATABASE_URL")
         display("done")
       end
@@ -81,7 +81,7 @@ module Heroku::Command
     def psql
       ENV["PGPASSWORD"] = @database_password
       cmd = "psql -U #{@database_user} -h #{@database_host} #{@database_name}"
-      display("Connecting to Bifrost database for app #{app} ...")
+      display("Connecting to database for app #{app} ...")
       system(cmd)
     end
 

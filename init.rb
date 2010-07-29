@@ -1,2 +1,2 @@
-require "bifrost/client"
-require "heroku/command/bifrost"
+require "heroku-postgresql/client"
+require "heroku/command/pg"

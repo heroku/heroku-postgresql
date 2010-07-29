@@ -1,4 +1,4 @@
-module Bifrost
+module HerokuPostgresql
   class Client
     Version = 2
 
@@ -34,7 +34,7 @@ module Bifrost
         yield
       rescue RestClient::BadRequest => e
         if JSON.parse(e.response.to_s)["error"] =~ /not using current client version/
-          abort("A new version of the Bifrost Heroku plugin is available\n" +
+          abort("A new version of the heroku-postgresql plugin is available\n" +
                 "Upgrade with `heroku plugins install ...`")
         else
           raise e
