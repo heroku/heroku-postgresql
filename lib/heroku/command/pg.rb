@@ -26,7 +26,6 @@ module Heroku::Command
 
     def info
       database = heroku_postgresql_client.get_database(@database_name)
-      puts database.inspect
       display("=== #{app} heroku-postgresql database")
       display("State:          #{database[:state]} for " +
                                "#{delta_format(Time.parse(database[:state_updated_at]))}")
