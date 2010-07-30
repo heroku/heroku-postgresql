@@ -62,8 +62,11 @@ module Heroku::Command
     end
 
     def attach
+      database = heroku_postgresql_client.get_database(@database_name)
       if @database_url == @heroku_postgresql_url
         display("The database is already attached to app #{app}")
+      elsif database[:state] != "running"
+        display("The database is not running")
       else
         display("Attatching database to app #{app} ... ", false)
         res = heroku.add_config_vars(app, {"DATABASE_URL" => @heroku_postgresql_url})
@@ -84,11 +87,16 @@ module Heroku::Command
     end
 
     def psql
-      heroku_postgresql_client.ingress(@database_name)
-      ENV["PGPASSWORD"] = @database_password
-      cmd = "psql -U #{@database_user} -h #{@database_host} #{@database_name}"
-      display("Connecting to database for app #{app} ...")
-      system(cmd)
+      database = heroku_postgresql_client.get_database(@database_name)
+      if database[:state] == "running"
+        display("Connecting to database for app #{app} ...")
+        heroku_postgresql_client.ingress(@database_name)
+        ENV["PGPASSWORD"] = @database_password
+        cmd = "psql -U #{@database_user} -h #{@database_host} #{@database_name}"
+        system(cmd)
+      else
+        display("The database is not running")
+      end
     end
 
     protected
