@@ -2,23 +2,44 @@ module HerokuPostgresql
   class Client
     Version = 2
 
-    def initialize(database_user, database_password)
+    def initialize(database_user, database_password, database_name)
       @heroku_postgresql_host = ENV["HEROKU_POSTGRESQL_HOST"] || "https://shogun.heroku.com"
       @database_user = database_user
       @database_password = database_password
+      @database_name = database_name
       @heroku_postgresql_resource = RestClient::Resource.new(
-        "#{@heroku_postgresql_host}/client",
+        "#{@heroku_postgresql_host}/client/databases",
         :user => @database_user,
         :password => @database_password,
         :headers => {:heroku_client_version => Version})
     end
 
-    def ingress(database_name)
-      http_put("databases/#{database_name}/ingress")
+    def ingress
+      http_put("#{@database_name}/ingress")
     end
 
-    def get_database(database_name)
-      http_get("databases/#{database_name}")
+    def get_database
+      http_get(@database_name)
+    end
+
+    def create_backup(backup_name)
+      http_post("#{@database_name}/backups", {:name => backup_name})
+    end
+
+    def get_backup(backup_name)
+      http_get("#{@database_name}/backups/#{backup_name}")
+    end
+
+    def get_backups
+      http_get("#{@database_name}/backups")
+    end
+
+    def create_restore(restore_param)
+      http_post("#{@database_name}/restores", restore_param)
+    end
+
+    def get_restore(restore_id)
+      http_get("#{@database_name}/restores/#{restore_id}")
     end
 
     protected

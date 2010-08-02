@@ -6,6 +6,12 @@ module Heroku::Command
       group.command "pg:attach", "use heroku-postgresql database as DATABASE_URL"
       group.command "pg:detach", "revert to using shared Postgres database"
       group.command "pg:psql",   "open a psql shell to the database"
+
+      group.command "pg:backup",            "capture a pgdump backup"
+      group.command "pg:backup_url <name>", "get download URL for a pgdump"
+      group.command "pg:backups",           "list backups"
+      group.command "pg:restore <name>",    "restore from a pgdump backup"
+      group.command "pg:restore <url>",     "restore from a pgdump at the given url"
     end
 
     def initialize(*args)
@@ -25,7 +31,7 @@ module Heroku::Command
     end
 
     def info
-      database = heroku_postgresql_client.get_database(@database_name)
+      database = heroku_postgresql_client.get_database
       display("=== #{app} heroku-postgresql database")
 
       display_info("State",
@@ -51,7 +57,7 @@ module Heroku::Command
 
     def wait
       ticking do |ticks|
-        database = heroku_postgresql_client.get_database(@database_name)
+        database = heroku_postgresql_client.get_database
         state = database[:state]
         if state == "running"
           redisplay("The database is now ready", true)
@@ -69,7 +75,7 @@ module Heroku::Command
     end
 
     def attach
-      database = heroku_postgresql_client.get_database(@database_name)
+      database = heroku_postgresql_client.get_database
       if @database_url == @heroku_postgresql_url
         display("The database is already attached to app #{app}")
       elsif database[:state] != "running"
@@ -97,10 +103,10 @@ module Heroku::Command
       if !has_psql?
         display("You do not have the psql command line tool installed")
       else
-        database = heroku_postgresql_client.get_database(@database_name)
+        database = heroku_postgresql_client.get_database
         if database[:state] == "running"
           display("Connecting to database for app #{app} ...")
-          heroku_postgresql_client.ingress(@database_name)
+          heroku_postgresql_client.ingress
           ENV["PGPASSWORD"] = @database_password
           cmd = "psql -U #{@database_user} -h #{@database_host} #{@database_name}"
           system(cmd)
@@ -111,13 +117,13 @@ module Heroku::Command
     end
 
     def backup
-      backup_name = (args.first && args.first.strip) ||
-                    abort("No backup name supplied")
-      backup = heroku_postgresql_client.create_backup(@database_name, backup_name)
+      backup_name = timestamp_name
+      database = heroku_postgresql_client.get_database
+      backup = heroku_postgresql_client.create_backup(backup_name)
+      display("Capturing backup of #{size_format(database[:num_bytes])} database for app #{app}")
       backup_id = backup[:id]
-      display("Capturing backup of database for app #{app}")
       ticking do |ticks|
-        backup = heroku_postgresql_client.get_backup(@database_name, backup_name)
+        backup = heroku_postgresql_client.get_backup(backup_name)
         if backup[:finished_at]
           redisplay("Backup complete", true)
           break
@@ -126,7 +132,7 @@ module Heroku::Command
                     "Your database was not affected", true)
         elsif prog = backup[:progress]
           task, amount = prog.last
-          redisplay(sprintf("%-10s  %s", "#{task}ing", amount), false)
+          redisplay(sprintf("%-10s  %s %s", "#{task}ing", spinner(ticks), amount_format(amount)), false)
         else
           redisplay(sprintf("%-10s  %s", "pending", spinner(ticks), false))
         end
@@ -136,7 +142,7 @@ module Heroku::Command
     def backup_url
       backup_name = (args.first && args.first.strip) ||
                     abort("No backup name supplied")
-      backup = heroku_postgresql_client.get_backup(@database_name, backup_name)
+      backup = heroku_postgresql_client.get_backup(backup_name)
       if backup[:finished_at]
         display(backup[:dump_url])
       elsif backup[:error_at]
@@ -147,16 +153,63 @@ module Heroku::Command
     end
 
     def backups
-      backups = heroku_postgresql_client.get_backups(@database_name)
-      backups.sort_by { |b| b[:started_at] }.each do |b|
-        puts b[:name]
+      backups = heroku_postgresql_client.get_backups
+      if backups.empty?
+        display("App #{app} has no database backups")
+      else
+        name_width = backups.map { |b| b[:name].length }.max
+        backups.sort_by { |b| b[:started_at] }.each do |b|
+          state =
+            if b[:finished_at]
+              size_format(b[:size_compressed])
+            elsif b[:error_at]
+              "error"
+            elsif prog = b[:progress]
+              "#{prog.last.first}ing"
+            else
+              "pending"
+            end
+          display(format("%-#{name_width}s  %s", b[:name], state))
+        end
+      end
+    end
+
+    def restore
+      dump_arg = (args.first && args.first.strip) ||
+                  abort("No pgdump name or url supplied")
+      if (dump_arg =~ /^http.*sql\.gz/)
+        restore_with(:dump_url => dump_arg)
+      else
+        restore_with(:backup_name => dump_arg)
       end
     end
 
     protected
 
+    def restore_with(restore_param)
+      restore = heroku_postgresql_client.create_restore(restore_param)
+      display("Restoring database for app #{app}")
+      restore_id = restore[:id]
+      ticking do |ticks|
+        restore = heroku_postgresql_client.get_restore(restore_id)
+        if restore[:finished_at]
+          redisplay("Restore complete", true)
+          break
+        elsif restore[:error_at]
+          redisplay("An error occured while restoring the backup", true)
+        elsif prog = restore[:progress]
+          task, amount = prog.last
+          puts spinner(ticks)
+          redisplay(sprintf("%-10s  %s %s", "#{task}ing", spinner(ticks), amount_format(amount)), false)
+        else
+          redisplay(sprintf("%-10s  %s", "pending", spinner(ticks)), false)
+        end
+      end
+    end
+
     def heroku_postgresql_client
-      ::HerokuPostgresql::Client.new(@database_user, @database_password)
+      ::HerokuPostgresql::Client.new(
+        @database_user, @database_password, @database_name)
     end
 
     def ticking
@@ -216,9 +269,17 @@ module Heroku::Command
       return format("%.2fGB", (bytes.to_f / GB))
     end
 
+    def amount_format(amount)
+      amount.is_a?(Fixnum) ? size_format(amount) : amount.to_s
+    end
+
     def time_format(time)
       time = Time.parse(time) if time.is_a?(String)
       time.strftime("%Y-%m-%d %H:%M %Z")
+    end
+
+    def timestamp_name
+      Time.now.strftime("%Y-%m-%d-%H:%M")
     end
 
     def has_psql?
