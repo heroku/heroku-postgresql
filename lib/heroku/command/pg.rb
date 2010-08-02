@@ -33,7 +33,7 @@ module Heroku::Command
       display("Data size:      #{size_format(database[:num_bytes])} in " +
                               "#{database[:num_tables]} table#{database[:num_tables] == 1 ? "" : "s"}")
       end
-      if !(@heroku_postgresql_url =~ /NOT_READ/)
+      if !(@heroku_postgresql_url =~ /NOT.READY/)
       display("URL:            #{@heroku_postgresql_url}")
       end
       display("Born:           #{time_format(database[:created_at])}")
