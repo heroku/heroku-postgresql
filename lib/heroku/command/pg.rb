@@ -27,16 +27,26 @@ module Heroku::Command
     def info
       database = heroku_postgresql_client.get_database(@database_name)
       display("=== #{app} heroku-postgresql database")
-      display("State:          #{database[:state]} for " +
-                               "#{delta_format(Time.parse(database[:state_updated_at]))}")
+
+      display_info("State",
+        "#{database[:state]} for " +
+        "#{delta_format(Time.parse(database[:state_updated_at]))}")
+
       if database[:num_bytes] && database[:num_tables]
-      display("Data size:      #{size_format(database[:num_bytes])} in " +
-                              "#{database[:num_tables]} table#{database[:num_tables] == 1 ? "" : "s"}")
+        display_info("Data size",
+          "#{size_format(database[:num_bytes])} in " +
+          "#{database[:num_tables]} table#{database[:num_tables] == 1 ? "" : "s"}")
       end
-      if !(@heroku_postgresql_url =~ /NOT.READY/)
-      display("URL:            #{@heroku_postgresql_url}")
+
+      if @heroku_postgresql_url && !(@heroku_postgresql_url =~ /NOT.READY/)
+        display_info("URL", @heroku_postgresql_url)
       end
-      display("Born:           #{time_format(database[:created_at])}")
+
+      #if version = database[:postgresql_version]
+        display_info("PG version", "8.4.4")
+      #end
+
+      display_info("Born", time_format(database[:created_at]))
     end
 
     def wait
@@ -115,6 +125,10 @@ module Heroku::Command
 
     def redisplay(line, line_break = false)
       display("\r\e[0K#{line}", line_break)
+    end
+
+    def display_info(label, info)
+      display(format("%-12s %s", label, info))
     end
 
     def delta_format(start, finish = Time.now)
