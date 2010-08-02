@@ -50,8 +50,7 @@ module Heroku::Command
     end
 
     def wait
-      ticks = 0
-      loop do
+      ticking do |ticks|
         database = heroku_postgresql_client.get_database(@database_name)
         state = database[:state]
         if state == "running"
@@ -66,8 +65,6 @@ module Heroku::Command
         else
           redisplay("#{state} database #{spinner(ticks)}", false)
         end
-        ticks += 1
-        sleep 1
       end
     end
 
@@ -113,10 +110,62 @@ module Heroku::Command
       end
     end
 
+    def backup
+      backup_name = (args.first && args.first.strip) ||
+                    abort("No backup name supplied")
+      backup = heroku_postgresql_client.create_backup(@database_name, backup_name)
+      backup_id = backup[:id]
+      display("Capturing backup of database for app #{app}")
+      ticking do |ticks|
+        backup = heroku_postgresql_client.get_backup(@database_name, backup_name)
+        if backup[:finished_at]
+          redisplay("Backup complete", true)
+          break
+        elsif backup[:error_at]
+          redisplay("An error occured while capturing the backup\n" +
+                    "Your database was not affected", true)
+        elsif prog = backup[:progress]
+          task, amount = prog.last
+          redisplay(sprintf("%-10s  %s", "#{task}ing", amount), false)
+        else
+          redisplay(sprintf("%-10s  %s", "pending", spinner(ticks), false))
+        end
+      end
+    end
+
+    def backup_url
+      backup_name = (args.first && args.first.strip) ||
+                    abort("No backup name supplied")
+      backup = heroku_postgresql_client.get_backup(@database_name, backup_name)
+      if backup[:finished_at]
+        display(backup[:dump_url])
+      elsif backup[:error_at]
+        display("This backup did not complete successfully")
+      else
+        display("This backup has not yet completed")
+      end
+    end
+
+    def backups
+      backups = heroku_postgresql_client.get_backups(@database_name)
+      backups.sort_by { |b| b[:started_at] }.each do |b|
+        puts b[:name]
+      end
+    end
+
     protected
 
     def heroku_postgresql_client
       ::HerokuPostgresql::Client.new(@database_user, @database_password)
+    end
+
+    def ticking
+      ticks = 0
+      loop do
+        yield(ticks)
+        ticks +=1
+        sleep 1
+      end
     end
 
     def spinner(ticks)
