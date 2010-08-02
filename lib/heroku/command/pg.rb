@@ -87,15 +87,19 @@ module Heroku::Command
     end
 
     def psql
-      database = heroku_postgresql_client.get_database(@database_name)
-      if database[:state] == "running"
-        display("Connecting to database for app #{app} ...")
-        heroku_postgresql_client.ingress(@database_name)
-        ENV["PGPASSWORD"] = @database_password
-        cmd = "psql -U #{@database_user} -h #{@database_host} #{@database_name}"
-        system(cmd)
+      if !has_psql?
+        display("You do not have the psql command line tool installed")
       else
-        display("The database is not running")
+        database = heroku_postgresql_client.get_database(@database_name)
+        if database[:state] == "running"
+          display("Connecting to database for app #{app} ...")
+          heroku_postgresql_client.ingress(@database_name)
+          ENV["PGPASSWORD"] = @database_password
+          cmd = "psql -U #{@database_user} -h #{@database_host} #{@database_name}"
+          system(cmd)
+        else
+          display("The database is not running")
+        end
       end
     end
 
@@ -152,6 +156,10 @@ module Heroku::Command
     def time_format(time)
       time = Time.parse(time) if time.is_a?(String)
       time.strftime("%Y-%m-%d %H:%M %Z")
+    end
+
+    def has_psql?
+      `which psql` != ""
     end
   end
 end
