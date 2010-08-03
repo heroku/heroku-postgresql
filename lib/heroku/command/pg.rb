@@ -156,7 +156,7 @@ module Heroku::Command
         display("App #{app} has no database backups")
       else
         name_width = backups.map { |b| b[:name].length }.max
-        backups.sort_by { |b| b[:started_at] }.each do |b|
+        backups.sort_by { |b| b[:started_at] }.reverse.each do |b|
           state =
             if b[:finished_at]
               size_format(b[:size_compressed])
