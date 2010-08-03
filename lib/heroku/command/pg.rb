@@ -162,9 +162,9 @@ module Heroku::Command
 
     def size_format(bytes)
       return "#{bytes}B" if bytes < KB
-      return "#{(bytes / KB).round}K" if bytes < MB
-      return "#{(bytes / MB).round}M" if bytes < GB
-      return "#{(bytes / GB).round}G"
+      return "#{(bytes / KB)}KB" if bytes < MB
+      return format("%.1fMB", (bytes.to_f / MB)) if bytes < GB
+      return format("%.2fGB", (bytes.to_f / GB))
     end
 
     def time_format(time)
