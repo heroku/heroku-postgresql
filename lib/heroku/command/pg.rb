@@ -154,6 +154,7 @@ module Heroku::Command
 
     def backups
       backups = heroku_postgresql_client.get_backups
+      valid_backups = backups.select { |b| !b[:error_at] }
       if backups.empty?
         display("App #{app} has no database backups")
       else
@@ -162,12 +163,10 @@ module Heroku::Command
           state =
             if b[:finished_at]
               size_format(b[:size_compressed])
-            elsif b[:error_at]
-              "error"
             elsif prog = b[:progress]
-              "#{prog.last.first}ing"
+              "#{prog.last.first.capitalize}ing"
             else
-              "pending"
+              "Pending"
             end
           display(format("%-#{name_width}s  %s", b[:name], state))
         end
