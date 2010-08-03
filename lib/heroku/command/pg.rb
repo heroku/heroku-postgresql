@@ -117,24 +117,21 @@ module Heroku::Command
     end
 
     def backup
-      backup_name = timestamp_name
       database = heroku_postgresql_client.get_database
+      backup_name = timestamp_name
+      display("Capturing backup #{backup_name} of #{size_format(database[:num_bytes])} database for app #{app}")
       backup = heroku_postgresql_client.create_backup(backup_name)
-      display("Capturing backup of #{size_format(database[:num_bytes])} database for app #{app}")
       backup_id = backup[:id]
       ticking do |ticks|
         backup = heroku_postgresql_client.get_backup(backup_name)
+        display_progress(backup[:progress], ticks)
         if backup[:finished_at]
-          redisplay("Backup complete", true)
+          display("Backup complete")
           break
         elsif backup[:error_at]
-          redisplay("An error occured while capturing the backup\n" +
-                    "Your database was not affected", true)
-        elsif prog = backup[:progress]
-          task, amount = prog.last
-          redisplay(sprintf("%-10s  %s %s", "#{task}ing", spinner(ticks), amount_format(amount)), false)
-        else
-          redisplay(sprintf("%-10s  %s", "pending", spinner(ticks), false))
+          display("\nAn error occured while capturing the backup\n" +
+                    "Your database was not affected")
+          break
         end
       end
     end
@@ -180,7 +177,7 @@ module Heroku::Command
         display("Restoring database for app #{app} from #{dump_arg}")
         restore_with(:dump_url => dump_arg)
       else
-        display("Restoring database for app #{app} from backup #{backup_name}")
+        display("Restoring database for app #{app} from backup #{dump_arg}")
         restore_with(:backup_name => dump_arg)
       end
     end
@@ -189,21 +186,16 @@ module Heroku::Command
 
     def restore_with(restore_param)
       restore = heroku_postgresql_client.create_restore(restore_param)
-      display("Restoring database for app #{app}")
       restore_id = restore[:id]
       ticking do |ticks|
         restore = heroku_postgresql_client.get_restore(restore_id)
+        display_progress(restore[:progress], ticks)
         if restore[:finished_at]
-          redisplay("Restore complete", true)
+          display("Restore complete")
           break
         elsif restore[:error_at]
-          redisplay("An error occured while restoring the backup", true)
-        elsif prog = restore[:progress]
-          task, amount = prog.last
-          puts spinner(ticks)
-          redisplay(sprintf("%-10s  %s %s", "#{task}ing", spinner(ticks), amount_format(amount)), false)
-        else
-          redisplay(sprintf("%-10s  %s", "pending", spinner(ticks)), false)
+          display("\nAn error occured while restoring the backup")
+          break
         end
       end
     end
@@ -232,6 +224,29 @@ module Heroku::Command
 
     def display_info(label, info)
       display(format("%-12s %s", label, info))
+    end
+
+    def display_progress_part(part, ticks)
+      task, amount = part
+      if amount == "start"
+        redisplay(format("%-10s ... %s", task.capitalize, spinner(ticks)))
+        @last_amount = 0
+      elsif amount.is_a?(Fixnum)
+        redisplay(format("%-10s ... %s  %s", task.capitalize, size_format(amount), spinner(ticks)))
+        @last_amount = amount
+      elsif amount == "finish"
+        redisplay(format("%-10s ... %s, done", task.capitalize, size_format(@last_amount)), true)
+      end
+    end
+
+    def display_progress(progress, ticks)
+      new_progress = ((progress || []) - (@seen_progress || []))
+      if !new_progress.empty?
+        new_progress.each { |p| display_progress_part(p, ticks) }
+      elsif !progress.empty? && progress.last[0] != "finish"
+        display_progress_part(progress.last, ticks)
+      end
+      @seen_progress = progress
     end
 
     def delta_format(start, finish = Time.now)
