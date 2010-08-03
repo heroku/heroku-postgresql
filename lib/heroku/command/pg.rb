@@ -269,17 +269,13 @@ module Heroku::Command
       return format("%.2fGB", (bytes.to_f / GB))
     end
 
-    def amount_format(amount)
-      amount.is_a?(Fixnum) ? size_format(amount) : amount.to_s
-    end
-
     def time_format(time)
       time = Time.parse(time) if time.is_a?(String)
       time.strftime("%Y-%m-%d %H:%M %Z")
     end
 
     def timestamp_name
-      Time.now.strftime("%Y-%m-%d-%H:%M")
+      Time.now.strftime("%Y-%m-%d-%H:%M:%S")
     end
 
     def has_psql?
