@@ -69,7 +69,7 @@ module Heroku::Command
           redisplay("The database encountered an error", true)
           break
         else
-          redisplay("#{state} database #{spinner(ticks)}", false)
+          redisplay("#{state.capitalize} database #{spinner(ticks)}", false)
         end
       end
     end
