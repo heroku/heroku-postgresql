@@ -48,9 +48,9 @@ module Heroku::Command
         display_info("URL", @heroku_postgresql_url)
       end
 
-      #if version = database[:postgresql_version]
-        display_info("PG version", "8.4.4")
-      #end
+      if version = database[:postgresql_version]
+        display_info("PG version", version)
+      end
 
       display_info("Born", time_format(database[:created_at]))
     end
