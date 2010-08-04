@@ -7,11 +7,12 @@ module Heroku::Command
       group.command "pg:detach", "revert to using the shared Postgres database"
       group.command "pg:psql",   "open a psql shell to the database"
 
-      group.command "pg:backup",            "capture a pgdump backup"
-      group.command "pg:backup_url <name>", "get download URL for a pgdump"
-      group.command "pg:backups",           "list backups"
-      group.command "pg:restore <name>",    "restore from a pgdump backup"
-      group.command "pg:restore <url>",     "restore from a pgdump at the given url"
+      group.command "pg:backup",              "capture a pgdump backup"
+      group.command "pg:backup_url [<name>]", "get download URL for a pgdump backup"
+      group.command "pg:backups",             "list pgdump backups"
+      group.command "pg:download [<name>]",   "download a pgdump backup"
+      group.command "pg:restore <name>",      "restore from a pgdump backup"
+      group.command "pg:restore <url>",       "restore from a pgdump at the given URL"
     end
 
     def initialize(*args)
@@ -75,7 +76,7 @@ module Heroku::Command
     end
 
     def attach
-      with_running_database |database|
+      with_running_database do |database|
         if @database_url == @heroku_postgresql_url
           display("The database is already attached to app #{app}")
         else
@@ -99,52 +100,41 @@ module Heroku::Command
     end
 
     def psql
-      if !has_psql?
-        display("You do not have the psql command line tool installed")
-      else
-        database = heroku_postgresql_client.get_database
-        if database[:state] == "running"
+      with_psql_binary do
+        with_running_database do |database|
           display("Connecting to database for app #{app} ...")
           heroku_postgresql_client.ingress
           ENV["PGPASSWORD"] = @database_password
           cmd = "psql -U #{@database_user} -h #{@database_host} #{@database_name}"
           system(cmd)
-        else
-          display("The database is not running")
         end
       end
     end
 
     def backup
-      database = heroku_postgresql_client.get_database
-      backup_name = timestamp_name
-      display("Capturing backup #{backup_name} of #{size_format(database[:num_bytes])} database for app #{app}")
-      backup = heroku_postgresql_client.create_backup(backup_name)
-      backup_id = backup[:id]
-      ticking do |ticks|
-        backup = heroku_postgresql_client.get_backup(backup_name)
-        display_progress(backup[:progress], ticks)
-        if backup[:finished_at]
-          display("Backup complete")
-          break
-        elsif backup[:error_at]
-          display("\nAn error occured while capturing the backup\n" +
-                    "Your database was not affected")
-          break
+      with_running_database do |database|
+        backup_name = timestamp_name
+        display("Capturing backup #{backup_name} of #{size_format(database[:num_bytes])} database for app #{app}")
+        backup = heroku_postgresql_client.create_backup(backup_name)
+        backup_id = backup[:id]
+        ticking do |ticks|
+          backup = heroku_postgresql_client.get_backup(backup_name)
+          display_progress(backup[:progress], ticks)
+          if backup[:finished_at]
+            display("Backup complete")
+            break
+          elsif backup[:error_at]
+            display("\nAn error occured while capturing the backup\n" +
+                      "Your database was not affected")
+            break
+          end
         end
       end
     end
 
     def backup_url
-      backup_name = (args.first && args.first.strip) ||
-                    abort("No backup name supplied")
-      backup = heroku_postgresql_client.get_backup(backup_name)
-      if backup[:finished_at]
-        display(backup[:dump_url])
-      elsif backup[:error_at]
-        display("This backup did not complete successfully")
-      else
-        display("This backup has not yet completed")
+      with_optionally_named_backup do |backup|
+        display("URL for backup #{backup[:name]}:\n#{backup[:dump_url]}")
       end
     end
 
@@ -166,6 +156,19 @@ module Heroku::Command
             end
           display(format("%-#{name_width}s  %s", b[:name], state))
         end
+      end
+    end
+
+    def download
+      with_download_binary do |binary|
+        with_optionally_named_backup do |backup|
+          file = "#{backup[:name]}.sql.gz"
+          puts "Downloading backup to #{file}"
+          exec_download(backup[:dump_url], file, binary)
+        end
+      end
+    end
+
     def restore
       with_running_database do |database|
         dump_arg = (args.first && args.first.strip) ||
@@ -180,18 +183,6 @@ module Heroku::Command
       end
     end
 
-    def restore
-      dump_arg = (args.first && args.first.strip) ||
-                  abort("No pgdump name or url supplied")
-      if (dump_arg =~ /^http.*sql\.gz/)
-        display("Restoring database for app #{app} from #{dump_arg}")
-        restore_with(:dump_url => dump_arg)
-      else
-        display("Restoring database for app #{app} from backup #{dump_arg}")
-        restore_with(:backup_name => dump_arg)
-      end
-    end
-
     protected
 
     def with_running_database
@@ -202,6 +193,20 @@ module Heroku::Command
         display("The database is not running")
       end
     end
+
+    def with_optionally_named_backup
+      backup_name = args.first && args.first.strip
+      backup = backup_name ? heroku_postgresql_client.get_backup(backup_name) :
+                             heroku_postgresql_client.get_backup_recent
+      if backup[:finished_at]
+        yield(backup)
+      elsif backup[:error_at]
+        display("Backup #{backup[:name]} did not complete successfully")
+      else
+        display("Backup #{backup[:name]} has not yet completed")
+      end
+    end
+
     def restore_with(restore_param)
       restore = heroku_postgresql_client.create_restore(restore_param)
       restore_id = restore[:id]
@@ -215,6 +220,34 @@ module Heroku::Command
           display("\nAn error occured while restoring the backup")
           break
         end
+      end
+    end
+
+    def with_psql_binary
+      if !has_binary?("psql")
+        display("Please install the 'psql' command line tool")
+      else
+        yield
+      end
+    end
+
+    def with_download_binary
+      if has_binary?("curl")
+        yield(:curl)
+      elsif has_binary?("wget")
+        yield(:wget)
+      else
+        display("Please install either the 'curl' or 'wget' command line tools")
+      end
+    end
+
+    def exec_download(from, to, binary)
+      if binary == :curl
+        system("curl -o \"#{to}\" \"#{from}\"")
+      elsif binary == :wget
+        system("wget -O \"#{to}\" --no-check-certificate \"#{from}\"")
+      else
+        display("Unrecognized binary #{binary}")
       end
     end
 
@@ -312,8 +345,8 @@ module Heroku::Command
       Time.now.strftime("%Y-%m-%d-%H:%M:%S")
     end
 
-    def has_psql?
-      `which psql` != ""
+    def has_binary?(binary)
+      `which #{binary}` != ""
     end
   end
 end

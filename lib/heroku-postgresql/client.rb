@@ -26,6 +26,10 @@ module HerokuPostgresql
       http_post("#{@database_name}/backups", {:name => backup_name})
     end
 
+    def get_backup_recent
+      http_get("#{@database_name}/backups/recent")
+    end
+
     def get_backup(backup_name)
       http_get("#{@database_name}/backups/#{backup_name}")
     end
