@@ -2,9 +2,9 @@ module Heroku::Command
   class Pg < BaseWithApp
     Help.group("heroku-postgresql") do |group|
       group.command "pg:info",   "show database status"
-      group.command "pg:wait",   "wait for database to come online"
-      group.command "pg:attach", "use heroku-postgresql database as DATABASE_URL"
-      group.command "pg:detach", "revert to using shared Postgres database"
+      group.command "pg:wait",   "wait for the database to come online"
+      group.command "pg:attach", "use the heroku-postgresql database for the DATABASE_URL"
+      group.command "pg:detach", "revert to using the shared Postgres database"
       group.command "pg:psql",   "open a psql shell to the database"
 
       group.command "pg:backup",            "capture a pgdump backup"
