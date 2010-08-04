@@ -62,9 +62,8 @@ module HerokuPostgresql
       begin
         yield
       rescue RestClient::BadRequest => e
-        if JSON.parse(e.response.to_s)["error"] =~ /not using current client version/
-          abort("A new version of the heroku-postgresql plugin is available\n" +
-                "Upgrade with `heroku plugins install git://github.com/heroku/heroku-postgresql.git`")
+        if message = JSON.parse(e.response.to_s)["upgrade_message"]
+          abort(message)
         else
           raise e
         end
