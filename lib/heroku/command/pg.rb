@@ -75,15 +75,14 @@ module Heroku::Command
     end
 
     def attach
-      database = heroku_postgresql_client.get_database
-      if @database_url == @heroku_postgresql_url
-        display("The database is already attached to app #{app}")
-      elsif database[:state] != "running"
-        display("The database is not running")
-      else
-        display("Attatching database to app #{app} ... ", false)
-        res = heroku.add_config_vars(app, {"DATABASE_URL" => @heroku_postgresql_url})
-        display("done")
+      with_running_database |database|
+        if @database_url == @heroku_postgresql_url
+          display("The database is already attached to app #{app}")
+        else
+          display("Attatching database to app #{app} ... ", false)
+          res = heroku.add_config_vars(app, {"DATABASE_URL" => @heroku_postgresql_url})
+          display("done")
+        end
       end
     end
 
@@ -167,6 +166,17 @@ module Heroku::Command
             end
           display(format("%-#{name_width}s  %s", b[:name], state))
         end
+    def restore
+      with_running_database do |database|
+        dump_arg = (args.first && args.first.strip) ||
+                    abort("No pgdump name or url supplied")
+        if (dump_arg =~ /^http.*sql\.gz/)
+          display("Restoring database for app #{app} from #{dump_arg}")
+          restore_with(:dump_url => dump_arg)
+        else
+          display("Restoring database for app #{app} from backup #{dump_arg}")
+          restore_with(:backup_name => dump_arg)
+        end
       end
     end
 
@@ -184,6 +194,14 @@ module Heroku::Command
 
     protected
 
+    def with_running_database
+      database = heroku_postgresql_client.get_database
+      if database[:state] == "running"
+        yield database
+      else
+        display("The database is not running")
+      end
+    end
     def restore_with(restore_param)
       restore = heroku_postgresql_client.create_restore(restore_param)
       restore_id = restore[:id]
