@@ -173,7 +173,7 @@ module Heroku::Command
       with_running_database do |database|
         dump_arg = (args.first && args.first.strip) ||
                     abort("No pgdump name or url supplied")
-        if (dump_arg =~ /^http.*sql\.gz/)
+        if (dump_arg =~ /^http/)
           display("Restoring database for app #{app} from #{dump_arg}")
           restore_with(:dump_url => dump_arg)
         else
