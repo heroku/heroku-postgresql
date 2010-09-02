@@ -291,6 +291,7 @@ module Heroku::Command
     end
 
     def display_progress(progress, ticks)
+      progress ||= []
       new_progress = ((progress || []) - (@seen_progress || []))
       if !new_progress.empty?
         new_progress.each { |p| display_progress_part(p, ticks) }
