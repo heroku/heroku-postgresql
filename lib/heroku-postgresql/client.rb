@@ -1,6 +1,6 @@
 module HerokuPostgresql
   class Client
-    Version = 4
+    Version = 5
 
     def initialize(database_user, database_password, database_name)
       @heroku_postgresql_host = ENV["HEROKU_POSTGRESQL_HOST"] || "https://shogun.heroku.com"
@@ -22,8 +22,8 @@ module HerokuPostgresql
       http_get(@database_name)
     end
 
-    def create_backup(backup_name)
-      http_post("#{@database_name}/backups", {:name => backup_name})
+    def create_backup(backup_name, from_database_url=nil)
+      http_post("#{@database_name}/backups", {:name => backup_name, :from_database_url => from_database_url})
     end
 
     def get_backup_recent

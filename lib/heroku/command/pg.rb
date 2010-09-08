@@ -20,7 +20,7 @@ module Heroku::Command
       @config_vars =  heroku.config_vars(app)
       @heroku_postgresql_url = ENV["HEROKU_POSTGRESQL_URL"] ||
                                @config_vars["HEROKU_POSTGRESQL_URL"]
-      @database_url = @config_vars["DATABASE_URL"]
+      @database_url = ENV["DATABASE_URL"] || @config_vars["DATABASE_URL"]
       if !@heroku_postgresql_url
         abort("The addon is not installed for the app #{app}")
       end
@@ -114,8 +114,14 @@ module Heroku::Command
     def backup
       with_running_database do |database|
         backup_name = timestamp_name
+
+        if @database_url != @heroku_postgresql_url
+          display("Warning: A heroku-postgresql database is not attached to app #{app}. Backing up legacy database for migration purposes.")
+          backup_name += "-legacy"
+        end
+
         display("Capturing backup #{backup_name} of #{size_format(database[:num_bytes])} database for app #{app}")
-        backup = heroku_postgresql_client.create_backup(backup_name)
+        backup = heroku_postgresql_client.create_backup(backup_name, @database_url)
         backup_id = backup[:id]
         ticking do |ticks|
           backup = heroku_postgresql_client.get_backup(backup_name)
@@ -171,6 +177,9 @@ module Heroku::Command
 
     def restore
       with_running_database do |database|
+        display("Warning: Data in the app '#{app}' will be overwritten and will not be recoverable.")
+        abort unless confirm
+
         dump_arg = (args.first && args.first.strip) ||
                     abort("No pgdump name or url supplied")
         if (dump_arg =~ /^http/)
