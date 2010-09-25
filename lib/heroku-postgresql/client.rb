@@ -1,6 +1,6 @@
 module HerokuPostgresql
   class Client
-    Version = 5
+    Version = 6
 
     def initialize(database_user, database_password, database_name)
       @heroku_postgresql_host = ENV["HEROKU_POSTGRESQL_HOST"] || "https://shogun.heroku.com"
