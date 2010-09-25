@@ -6,6 +6,7 @@ module Heroku::Command
       group.command "pg:attach", "use the heroku-postgresql database for the DATABASE_URL"
       group.command "pg:detach", "revert to using the shared Postgres database"
       group.command "pg:psql",   "open a psql shell to the database"
+      group.command "pg:ingress", "allow new connections from this IP to the database for one minute"
 
       group.command "pg:backup",              "capture a pgdump backup"
       group.command "pg:backup_url [<name>]", "get download URL for a pgdump backup"
@@ -108,6 +109,13 @@ module Heroku::Command
           cmd = "psql -U #{@database_user} -h #{@database_host} #{@database_name}"
           system(cmd)
         end
+      end
+    end
+
+    def ingress
+      with_running_database do |database|
+        display("Opening access to the database from this IP.")
+        heroku_postgresql_client.ingress
       end
     end
 
