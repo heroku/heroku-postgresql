@@ -114,8 +114,9 @@ module Heroku::Command
 
     def ingress
       with_running_database do |database|
-        display("Opening access to the database from this IP.")
+        display("Opening access to the database.")
         heroku_postgresql_client.ingress
+        display("The database will accept new incoming connections for the next 60s.")
         display("Connection info string: \"dbname=#{@database_name} host=#{@database_host} user=#{@database_user} password=#{@database_password}\"")
       end
     end
