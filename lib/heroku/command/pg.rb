@@ -60,10 +60,10 @@ module Heroku::Command
       ticking do |ticks|
         database = heroku_postgresql_client.get_database
         state = database[:state]
-        if state == "running"
+        if state == "available"
           redisplay("The database is now ready", true)
           break
-        elsif state == "destroyed"
+        elsif state == "deprovisioned"
           redisplay("The database has been destroyed", true)
           break
         elsif state == "failed"
@@ -196,7 +196,7 @@ module Heroku::Command
 
     def with_running_database
       database = heroku_postgresql_client.get_database
-      if database[:state] == "running"
+      if database[:state] == "available"
         yield database
       else
         display("The database is not running")
