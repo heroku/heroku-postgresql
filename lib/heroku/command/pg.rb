@@ -232,11 +232,11 @@ module Heroku::Command
       ticking do |ticks|
         restore = heroku_postgresql_client.get_restore(restore_id)
         display_progress(restore[:progress], ticks)
-        if restore[:finished_at]
-          display("Restore complete")
-          break
-        elsif restore[:error_at]
+        if restore[:error_at]
           display("\nAn error occured while restoring the backup")
+          break
+        elsif restore[:finished_at]
+          display("Restore complete")
           break
         end
       end
