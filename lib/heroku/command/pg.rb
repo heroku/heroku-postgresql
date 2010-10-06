@@ -234,7 +234,7 @@ module Heroku::Command
         display_progress(restore[:progress], ticks)
         if restore[:error_at]
           display("\nAn error occured while restoring the backup")
-          puts "RESTORE: #{restore.inspect}"
+          display(restore[:log])
           break
         elsif restore[:finished_at]
           display("Restore complete")
