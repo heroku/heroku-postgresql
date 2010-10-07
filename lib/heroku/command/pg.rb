@@ -1,12 +1,18 @@
 module Heroku::Command
   class Pg < BaseWithApp
     Help.group("heroku-postgresql") do |group|
+      # todo: specialcase this for shen
       group.command "pg:info",   "show database status"
+
+      # grody workaround commands
       group.command "pg:wait",   "wait for the database to come online"
       group.command "pg:promote <database name>", "use the specified database URL as the DATABASE_URL"
+
+      # won't work on shen
       group.command "pg:psql",   "open a psql shell to the database"
       group.command "pg:ingress", "allow new connections from this IP to the database for one minute"
 
+      # going to backups addon
       group.command "pg:backup",              "capture a pgdump backup"
       group.command "pg:backup_url [<name>]", "get download URL for a pgdump backup"
       group.command "pg:backups",             "list pgdump backups"
