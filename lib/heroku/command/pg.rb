@@ -3,8 +3,7 @@ module Heroku::Command
     Help.group("heroku-postgresql") do |group|
       group.command "pg:info",   "show database status"
       group.command "pg:wait",   "wait for the database to come online"
-      group.command "pg:attach", "use the heroku-postgresql database for the DATABASE_URL"
-      group.command "pg:detach", "revert to using the shared Postgres database"
+      group.command "pg:promote <database name>", "use the specified database URL as the DATABASE_URL"
       group.command "pg:psql",   "open a psql shell to the database"
       group.command "pg:ingress", "allow new connections from this IP to the database for one minute"
 
@@ -16,16 +15,28 @@ module Heroku::Command
       group.command "pg:restore <url>",       "restore from a pgdump at the given URL"
     end
 
-    def initialize(*args)
-      super
-      @config_vars =  heroku.config_vars(app)
-      @heroku_postgresql_url = ENV["HEROKU_POSTGRESQL_URL"] ||
-                               @config_vars["HEROKU_POSTGRESQL_URL"]
-      @database_url = ENV["DATABASE_URL"] || @config_vars["DATABASE_URL"]
-      if !@heroku_postgresql_url
-        abort("The addon is not installed for the app #{app}")
+    def select_database(input = (args.first && args.first.strip))
+      unless input
+        display "Defaulting to DATABASE_URL for your database location"
+        input = "DATABASE_URL"
       end
-      uri = URI.parse(@heroku_postgresql_url.gsub("_", "-"))
+
+      uri = URI.parse(@config_vars[input])
+
+      if uri.scheme == "postgres"
+        display("Config #{input} appears to be a postgres database.")
+        return @config_vars[input]
+      else
+        raise CommandFailed, "#{input} does not appear to contain a postgres URL."
+      end
+    end
+
+    def initialize(args, unused=nil)
+      super
+      @config_vars  = heroku.config_vars(app)
+      @database_url = select_database( (args.first && args.first.strip) )
+
+      uri = URI.parse(@database_url.gsub("_", "-"))
       @database_user =     uri.user
       @database_password = uri.password
       @database_host =     uri.host
@@ -76,27 +87,17 @@ module Heroku::Command
       end
     end
 
-    def attach
-      with_running_database do |database|
-        if @database_url == @heroku_postgresql_url
-          display("The database is already attached to app #{app}")
-        else
-          display("Attatching database to app #{app} ... ", false)
-          res = heroku.add_config_vars(app, {"DATABASE_URL" => @heroku_postgresql_url})
-          display("done")
-        end
+    def promote
+      if @config_vars["DATABASE_URL"] == @database_url
+        display("That database is already the primary database (DATABASE_URL) for app #{app}")
+        return
       end
-    end
-
-    def detach
-      if @database_url.nil?
-        display("A heroku-postgresql database is not attached to app #{app}")
-      elsif @database_url != @heroku_postgresql_url
-        display("Database attached to app #{app} is not a heroku-postgresql database")
-      else
-        display("Detatching database from app #{app} ... ", false)
-        res = heroku.remove_config_var(app, "DATABASE_URL")
+      with_running_database do |database|
+        display("Attatching database to app #{app} at DATABASE_URL ... ", false)
+        old_config = @config_vars
+        res = heroku.add_config_vars(app, {"DATABASE_URL" => @database_url})
         display("done")
+        display_config_changes(old_config)
       end
     end
 
