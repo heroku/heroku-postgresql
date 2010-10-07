@@ -19,9 +19,12 @@ module Heroku::Command
       group.command "pg:download [<name>]",   "download a pgdump backup"
       group.command "pg:restore <name>",      "restore from a pgdump backup"
       group.command "pg:restore <url>",       "restore from a pgdump at the given URL"
+
+      # temporary catchall for backup addon
+      group.command "pg:transfer --from [DB|URL|NAME] --to [DB|URL|NAME]",  "To perform a backup: --from DATABASE_URL. A restore: --from 2 --to DATABASE_URL"
     end
 
-    def select_database(input = (args.first && args.first.strip))
+    def set_database(input = (args.first && args.first.strip))
       unless input
         display "Defaulting to DATABASE_URL for your database location"
         input = "DATABASE_URL"
@@ -31,7 +34,11 @@ module Heroku::Command
 
       if uri.scheme == "postgres"
         display("Config #{input} appears to be a postgres database.")
-        return @config_vars[input]
+        @database_url = @config_vars[input]
+        @database_user =     uri.user
+        @database_password = uri.password
+        @database_host =     uri.host
+        @database_name =     uri.path[1..-1]        
       else
         raise CommandFailed, "#{input} does not appear to contain a postgres URL."
       end
@@ -40,16 +47,10 @@ module Heroku::Command
     def initialize(args, unused=nil)
       super
       @config_vars  = heroku.config_vars(app)
-      @database_url = select_database( (args.first && args.first.strip) )
-
-      uri = URI.parse(@database_url.gsub("_", "-"))
-      @database_user =     uri.user
-      @database_password = uri.password
-      @database_host =     uri.host
-      @database_name =     uri.path[1..-1]
     end
 
     def info
+      set_database
       database = heroku_postgresql_client.get_database
       display("=== #{app} heroku-postgresql database")
 
@@ -75,6 +76,7 @@ module Heroku::Command
     end
 
     def wait
+      set_database
       ticking do |ticks|
         database = heroku_postgresql_client.get_database
         state = database[:state]
@@ -94,6 +96,7 @@ module Heroku::Command
     end
 
     def promote
+      set_database
       if @config_vars["DATABASE_URL"] == @database_url
         display("That database is already the primary database (DATABASE_URL) for app #{app}")
         return
@@ -108,6 +111,7 @@ module Heroku::Command
     end
 
     def psql
+      set_database
       with_psql_binary do
         with_running_database do |database|
           display("Connecting to database for app #{app} ...")
@@ -120,6 +124,7 @@ module Heroku::Command
     end
 
     def ingress
+      set_database
       with_running_database do |database|
         display("Opening access to the database.")
         heroku_postgresql_client.ingress
@@ -129,6 +134,7 @@ module Heroku::Command
     end
 
     def backup
+      set_database
       with_running_database do |database|
         backup_name = timestamp_name
 
@@ -156,12 +162,14 @@ module Heroku::Command
     end
 
     def backup_url
+      set_database
       with_optionally_named_backup do |backup|
         display("URL for backup #{backup[:name]}:\n#{backup[:dump_url]}")
       end
     end
 
     def backups
+      set_database
       backups = heroku_postgresql_client.get_backups
       valid_backups = backups.select { |b| !b[:error_at] }
       if backups.empty?
@@ -183,6 +191,7 @@ module Heroku::Command
     end
 
     def download
+      set_database
       with_download_binary do |binary|
         with_optionally_named_backup do |backup|
           file = "#{backup[:name]}.sql.gz"
@@ -193,6 +202,7 @@ module Heroku::Command
     end
 
     def restore
+      set_database
       with_running_database do |database|
         display("Warning: Data in the app '#{app}' will be overwritten and will not be recoverable.")
         abort unless confirm
