@@ -20,8 +20,8 @@ module Heroku::Command
       group.command "pg:restore <name>",      "restore from a pgdump backup"
       group.command "pg:restore <url>",       "restore from a pgdump at the given URL"
 
-      # temporary catchall for backup addon
-      group.command "pg:transfer --from [DB|URL|NAME] --to [DB|URL|NAME]",  "To perform a backup: --from DATABASE_URL. A restore: --from 2 --to DATABASE_URL"
+      # temporary catchall for testing the backup addon
+      group.command "pg:xfer --from [DB|URL|NAME] --to [DB|URL|NAME]",  "To perform a backup: --from DATABASE_URL. A restore: --from 1 --to DATABASE_URL"
     end
 
     def set_database(input = (args.first && args.first.strip))
@@ -218,6 +218,54 @@ module Heroku::Command
         end
       end
     end
+
+    def xfer
+      url = ENV["HEROKU_PGBACKUP_URL"] || @config_vars["HEROKU_PGBACKUP_URL"]
+      abort("heroku-pgbackup addon is not installed.") unless url
+      client = HerokuPGBackup::Client.new(url)
+
+      from = extract_option('--from')
+      to = extract_option('--to')
+      abort("--from is required") unless from
+      from_url, from_name = resolve_named_url(from)
+
+      if to
+        to_url, to_name = resolve_named_url(to)
+      else
+        to_url = nil # server will auto-assign a name
+        to_name = "BACKUP"
+      end
+
+      log = ""
+      progress = {}
+      transfer = client.create_transfer(from_url, to_url, :from_name => from_name, :to_name => to_name)
+      while !transfer["finished_at"]
+        sleep 1
+        transfer = client.get_transfer(transfer["id"])
+      end
+      puts transfer["log"]
+    end
+
+    def resolve_named_url(input)
+      # input could be 'DATABASE_URL', 'postgres://..' URL or 'backup name'
+      # translate into postgres:// or backup:// URL
+      if input =~ /^[A-Z_]+/
+        abort("#{input} not found in app config variables.") unless @config_vars.include? input
+        return @config_vars[input], input
+      end
+
+      if input =~ /^postgres:\/\//
+        abort("#{input} not found in app config variables.") unless @config_vars.has_value? input
+        return input, @config_vars.invert[input]
+      end
+
+      if input =~ /^http(s):\/\//
+        return input, "URL"
+      end
+
+      return "backup://#{input}", "BACKUP"
+    end
+
 
     protected
 

@@ -46,6 +46,34 @@ module HerokuPostgresql
       http_get("#{@database_name}/restores/#{restore_id}")
     end
 
+    def do_transfer(service_url, from_url, to_url, opts={})
+      uri = URI.parse(service_url)
+      resource = RestClient::Resource.new("https://pgpipe.heroku.com/api",
+        :user => uri.user,
+        :password => uri.password,
+        :headers => {:heroku_client_version => Version}
+      )
+      params = {:from_url => from_url, :to_url => to_url}.merge opts
+      response = JSON.parse resource.post params
+      if response["errors"]
+        errors = response["errors"].values.flatten
+        #abort "ERROR: #{errors.join("\n")}"
+      end
+
+      resource = RestClient::Resource.new("https://pgpipe.heroku.com/api/transfers/4",
+        :user => uri.user,
+        :password => uri.password,
+        :headers => {:heroku_client_version => Version}
+      )
+      progress = JSON.parse resource.get
+
+      while !progress["finished_at"]
+        sleep 1
+        progress = JSON.parse resource.get
+        puts progress.inspect
+      end
+    end
+
     protected
 
     def sym_keys(c)
