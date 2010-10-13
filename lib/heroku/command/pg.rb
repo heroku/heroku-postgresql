@@ -162,7 +162,6 @@ module Heroku::Command
     end
 
     def backup_url
-      set_database
       with_optionally_named_backup do |backup|
         display("URL for backup #{backup[:name]}:\n#{backup[:dump_url]}")
       end
@@ -236,14 +235,47 @@ module Heroku::Command
         to_name = "BACKUP"
       end
 
-      log = ""
-      progress = {}
       transfer = client.create_transfer(from_url, to_url, :from_name => from_name, :to_name => to_name)
-      while !transfer["finished_at"]
+      puts Display.new.render([[['Direction', 'URL', 'Type']], [["From", transfer["from_url"], transfer["from_name"]], ["To", transfer["to_url"], transfer["to_name"]]]])
+      puts "\n"
+
+      if transfer["errors"]
+        puts transfer.inspect
+        puts "\nERROR:"
+        abort transfer["errors"].values.flatten.join("\n")
+      end
+
+      seen_logs = []
+      while true
+        logs = transfer["log"].split("\n") rescue []
+        (logs - seen_logs).each { |l| puts l }
+        seen_logs = logs
+
+        break if transfer["finished_at"]
+
         sleep 1
         transfer = client.get_transfer(transfer["id"])
       end
-      puts transfer["log"]
+
+      if transfer["error_at"]
+        puts "FAILURE."
+      else
+        puts "Success!"
+      end
+    end
+
+    def extract_progress(log)
+      return unless log
+      steps = []
+      progress = {}
+      log.split("\n").each { |line|
+        matches = line.scan /([a-z_]+)_progress:\s+([0-9.MGkbB]+)/
+        next if matches.empty?
+        step, amount = matches[0]
+        steps << step unless steps.include? step
+        progress[step] = amount
+      }
+      steps.map { |s| [s, progress[s]] }
     end
 
     def resolve_named_url(input)

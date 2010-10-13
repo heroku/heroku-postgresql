@@ -4,7 +4,6 @@ module HerokuPGBackup
   class Client
     def initialize(uri)
       @uri = URI.parse(uri)
-      print @uri.path
     end
 
     def authenticated_resource(path)
