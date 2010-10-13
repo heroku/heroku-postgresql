@@ -19,12 +19,12 @@ module HerokuPGBackup
     def create_transfer(from_url, to_url, opts={})
       resource = authenticated_resource("/api/transfers")
       params = {:from_url => from_url, :to_url => to_url}.merge opts
-      JSON.parse resource.post params
+      JSON.parse resource.post(params).body
     end
 
     def get_transfer(id)
       resource = authenticated_resource("/api/transfers/#{id}")
-      JSON.parse resource.get
+      JSON.parse resource.get.body
     end
   end
 end

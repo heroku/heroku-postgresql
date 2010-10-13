@@ -38,7 +38,7 @@ module Heroku::Command
         @database_user =     uri.user
         @database_password = uri.password
         @database_host =     uri.host
-        @database_name =     uri.path[1..-1]        
+        @database_name =     uri.path[1..-1]
       else
         raise CommandFailed, "#{input} does not appear to contain a postgres URL."
       end
@@ -101,13 +101,10 @@ module Heroku::Command
         display("That database is already the primary database (DATABASE_URL) for app #{app}")
         return
       end
-      with_running_database do |database|
-        display("Attatching database to app #{app} at DATABASE_URL ... ", false)
-        old_config = @config_vars
-        res = heroku.add_config_vars(app, {"DATABASE_URL" => @database_url})
-        display("done")
-        display_config_changes(old_config)
-      end
+      display("Attatching database to app #{app} at DATABASE_URL ... ", false)
+      old_config = @config_vars
+      res = heroku.add_config_vars(app, {"DATABASE_URL" => @database_url})
+      display("done")
     end
 
     def psql
