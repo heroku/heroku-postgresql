@@ -245,12 +245,8 @@ module Heroku::Command
         abort transfer["errors"].values.flatten.join("\n")
       end
 
-      seen_logs = []
       while true
-        logs = transfer["log"].split("\n") rescue []
-        (logs - seen_logs).each { |l| puts l }
-        seen_logs = logs
-
+        update_display(transfer)
         break if transfer["finished_at"]
 
         sleep 1
@@ -264,18 +260,42 @@ module Heroku::Command
       end
     end
 
-    def extract_progress(log)
-      return unless log
-      steps = []
-      progress = {}
-      log.split("\n").each { |line|
-        matches = line.scan /([a-z_]+)_progress:\s+([0-9.MGkbB]+)/
-        next if matches.empty?
-        step, amount = matches[0]
-        steps << step unless steps.include? step
-        progress[step] = amount
-      }
-      steps.map { |s| [s, progress[s]] }
+    def update_display(transfer)
+      @ticks            ||= 0
+      @last_updated_at  ||= 0
+      @last_logs        ||= []
+      @last_progress    ||= ["", 0]
+
+      @ticks += 1
+
+      if !transfer["log"]
+        @last_progress = ['pending', nil]
+        redisplay "Pending ... #{spinner(@ticks)}"
+      else
+        logs        = transfer["log"].split("\n")
+        new_logs    = logs - @last_logs
+        @last_logs  = logs
+
+        new_logs.each do |line|
+          matches = line.scan /^([a-z_]+)_progress:\s+([^ ]+)/
+          next if matches.empty?
+
+          step, amount = matches[0]
+
+          if ['done', 'error'].include? amount
+            # step is done, explicitly print result and newline
+            redisplay "#{@last_progress[0].capitalize} ... #{@last_progress[1]}, #{amount}\n"
+          end
+
+          # store progress, last one in the logs will get displayed
+          @last_progress = [step, amount]
+        end
+
+        step, amount = @last_progress
+        unless ['done', 'error'].include? amount
+          redisplay "#{step.capitalize} ... #{amount} #{spinner(@ticks)}"
+        end
+      end
     end
 
     def resolve_named_url(input)
@@ -373,15 +393,6 @@ module Heroku::Command
         @database_user, @database_password, @database_name)
     end
 
-    def ticking
-      ticks = 0
-      loop do
-        yield(ticks)
-        ticks +=1
-        sleep 1
-      end
-    end
-
     def spinner(ticks)
       %w(/ - \\ |)[ticks % 4]
     end
@@ -392,30 +403,6 @@ module Heroku::Command
 
     def display_info(label, info)
       display(format("%-12s %s", label, info))
-    end
-
-    def display_progress_part(part, ticks)
-      task, amount = part
-      if amount == "start"
-        redisplay(format("%-10s ... %s", task.capitalize, spinner(ticks)))
-        @last_amount = 0
-      elsif amount.is_a?(Fixnum)
-        redisplay(format("%-10s ... %s  %s", task.capitalize, size_format(amount), spinner(ticks)))
-        @last_amount = amount
-      elsif amount == "finish"
-        redisplay(format("%-10s ... %s, done", task.capitalize, size_format(@last_amount)), true)
-      end
-    end
-
-    def display_progress(progress, ticks)
-      progress ||= []
-      new_progress = ((progress || []) - (@seen_progress || []))
-      if !new_progress.empty?
-        new_progress.each { |p| display_progress_part(p, ticks) }
-      elsif !progress.empty? && progress.last[0] != "finish"
-        display_progress_part(progress.last, ticks)
-      end
-      @seen_progress = progress
     end
 
     def delta_format(start, finish = Time.now)
