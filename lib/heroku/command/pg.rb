@@ -20,7 +20,12 @@ module Heroku::Command
       super
       @config_vars =  heroku.config_vars(app)
       @heroku_postgresql_url = ENV["HEROKU_POSTGRESQL_URL"] ||
-                               @config_vars["HEROKU_POSTGRESQL_URL"]
+                               @config_vars["HEROKU_POSTGRESQL_URL"] ||
+                               @config_vars["HEROKU_POSTGRESQL_RONIN_URL"] ||
+                               @config_vars["HEROKU_POSTGRESQL_FUGU_URL"] ||
+                               @config_vars["HEROKU_POSTGRESQL_NINJA_URL"] ||
+                               @config_vars["HEROKU_POSTGRESQL_KAPPA_URL"]
+
       @database_url = ENV["DATABASE_URL"] || @config_vars["DATABASE_URL"]
       if !@heroku_postgresql_url
         abort("The addon is not installed for the app #{app}")
