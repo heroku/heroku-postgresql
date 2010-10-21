@@ -1,5 +1,7 @@
 module Heroku::Command
   class Pg < BaseWithApp
+    include PGBackups
+
     Help.group("heroku-postgresql") do |group|
       group.command "pg:info",   "show database status"
       group.command "pg:wait",   "wait for the database to come online"
@@ -161,33 +163,6 @@ module Heroku::Command
       end
     end
 
-    def backup
-      with_running_database do |database|
-        backup_name = timestamp_name
-
-        if @database_url != @heroku_postgresql_url
-          display("Warning: A heroku-postgresql database is not attached to app #{app}. Backing up legacy database for migration purposes.")
-          backup_name += "-legacy"
-        end
-
-        display("Capturing backup #{backup_name} of #{size_format(database[:num_bytes])} database for app #{app}")
-        backup = heroku_postgresql_client.create_backup(backup_name, @database_url)
-        backup_id = backup[:id]
-        ticking do |ticks|
-          backup = heroku_postgresql_client.get_backup(backup_name)
-          display_progress(backup[:progress], ticks)
-          if backup[:finished_at]
-            display("Backup complete")
-            break
-          elsif backup[:error_at]
-            display("\nAn error occured while capturing the backup\n" +
-                      "Your database was not affected")
-            break
-          end
-        end
-      end
-    end
-
     def legacy_backup_url
       with_optionally_named_backup do |backup|
         display("URL for backup #{backup[:name]}:\n#{backup[:dump_url]}")
@@ -211,33 +186,6 @@ module Heroku::Command
               "Pending"
             end
           display(format("%-#{name_width}s  %s", b[:name], state))
-        end
-      end
-    end
-
-    def download
-      with_download_binary do |binary|
-        with_optionally_named_backup do |backup|
-          file = "#{backup[:name]}.sql.gz"
-          puts "Downloading backup to #{file}"
-          exec_download(backup[:dump_url], file, binary)
-        end
-      end
-    end
-
-    def restore
-      with_running_database do |database|
-        display("Warning: Data in the app '#{app}' will be overwritten and will not be recoverable.")
-        abort unless confirm
-
-        dump_arg = (args.first && args.first.strip) ||
-                    abort("No pgdump name or url supplied")
-        if (dump_arg =~ /^http/)
-          display("Restoring database for app #{app} from #{dump_arg}")
-          restore_with(:dump_url => dump_arg)
-        else
-          display("Restoring database for app #{app} from backup #{dump_arg}")
-          restore_with(:backup_name => dump_arg)
         end
       end
     end
