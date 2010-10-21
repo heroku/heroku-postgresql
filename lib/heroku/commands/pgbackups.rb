@@ -1,3 +1,5 @@
+require "pty"
+
 module PGBackups
   def pgbackup_client
     url = ENV["PGBACKUPS_URL"] || @config_vars["PGBACKUPS_URL"]
@@ -120,20 +122,41 @@ module PGBackups
   end
 
   def download
-    require "pty"
-    name = args.shift
-    abort("Backup name required") unless name
-    abort("Please install either the 'curl' command line tools") unless `which curl` != ""
-    backup = pgbackup_client.get_backup(name)
-    outfile = File.basename('s3://hkpgbackups/app271187@heroku.com/7.dump')
+    abort("Please install either the 'curl' command line tools") if `which curl` == ""
+
+    @ticks = 0
+    redisplay "Pending ... #{spinner(@ticks)}"
+
+    backup_id = args.shift
+    if backup_id
+      backup = pgbackup_client.get_backup(backup_id)
+    else
+      backup = pgbackup_client.get_backups(:latest => true)
+    end
+
+    outfile = File.basename(backup["to_url"])
     abort("'#{outfile}' already exists") if File.exists? outfile
+
     PTY.spawn("curl -o #{outfile} \"#{backup["public_url"]}\"") do |reader, writer, pid|
-      buffer = ""
+      output  = ""
+      line    = ""
       begin
-        while reader.readpartial(4096, buffer)
-          puts buffer.inspect
+        while reader.readpartial(4096, output)
+          @ticks += 1
+          output.each_char do |char|
+            if ["\r", "\n", "\r\n"].include? char # newline?
+              vals = line.scan(/[0-9.]+[BkMG]/)
+              if vals && vals[1]
+                redisplay "Download ... #{vals[1]}B / #{backup['size']} #{spinner(@ticks)}"
+              end
+              line = ""
+            else
+              line += char
+            end
+          end
         end
       rescue Errno::EIO, EOFError => e
+        redisplay "Download ... #{backup['size']} / #{backup['size']}, done\n"
       end
     end
   end
