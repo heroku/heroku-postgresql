@@ -7,13 +7,22 @@ module Heroku::Command
       group.command "pg:detach", "revert to using the shared Postgres database"
       group.command "pg:psql",   "open a psql shell to the database"
       group.command "pg:ingress", "allow new connections from this IP to the database for one minute"
+    end
 
-      group.command "pg:backup",              "capture a pgdump backup"
-      group.command "pg:backup_url [<name>]", "get download URL for a pgdump backup"
-      group.command "pg:backups",             "list pgdump backups"
-      group.command "pg:download [<name>]",   "download a pgdump backup"
-      group.command "pg:restore <name>",      "restore from a pgdump backup"
-      group.command "pg:restore <url>",       "restore from a pgdump at the given URL"
+    Help.group("heroku-pgbackups") do |group|
+      group.command "pg:backup [<DB_ID>]",                  "capture a backup from database ID (e.g. DATABASE_URL)"
+      group.command "pg:backups",                           "list captured backups"
+      group.command "pg:backups <BACKUP_ID>",               "list details for backup"
+      group.command "pg:backups:destroy <BACKUP_ID>",       "destroy a backup"
+      group.command "pg:backups:download <BACKUP_ID>",      "download a backup"
+      group.command "pg:restore <BACKUP_ID> --db <DB_ID>",  "restore the database ID (e.g. DATABASE_URL) from the specified backup"
+      group.command "pg:restore <url> --db <DB_ID>",        "restore the database ID (e.g. DATABASE_URL) from the backup stored at the specified URL"
+    end
+
+    # pgpipe commands for migration purposes
+    Help.group("heroku-pgbackups-legacy") do |group|
+      group.command "pg:legacy:backup_url [<name>]", "get download URL for a pgdump backup"
+      group.command "pg:legacy:backups",             "list pgdump backups"
     end
 
     def initialize(*args)
