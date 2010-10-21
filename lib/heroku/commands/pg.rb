@@ -35,11 +35,11 @@ module Heroku::Command
       end
 
       def destroy
-        puts "DESTROYING"
+        @pg.destroy
       end
 
       def download
-        puts "DOWNLOADING"
+        @pg.download
       end
     end
 
