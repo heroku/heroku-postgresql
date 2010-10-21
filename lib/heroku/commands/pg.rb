@@ -1,6 +1,6 @@
 module Heroku::Command
   class Pg < BaseWithApp
-    include PGBackups
+    include PgUtils
 
     Help.group("heroku-postgresql") do |group|
       group.command "pg:info",   "show database status"
@@ -9,16 +9,6 @@ module Heroku::Command
       group.command "pg:detach", "revert to using the shared Postgres database"
       group.command "pg:psql",   "open a psql shell to the database"
       group.command "pg:ingress", "allow new connections from this IP to the database for one minute"
-    end
-
-    Help.group("heroku-pgbackups") do |group|
-      group.command "pg:backup [<DB_ID>]",                  "capture a backup from database ID (e.g. DATABASE_URL)"
-      group.command "pg:backups",                           "list captured backups"
-      group.command "pg:backups <BACKUP_ID>",               "list details for backup"
-      group.command "pg:backups:destroy <BACKUP_ID>",       "destroy a backup"
-      group.command "pg:backups:download <BACKUP_ID>",      "download a backup"
-      group.command "pg:restore <BACKUP_ID> --db <DB_ID>",  "restore the database ID (e.g. DATABASE_URL) from the specified backup"
-      group.command "pg:restore <url> --db <DB_ID>",        "restore the database ID (e.g. DATABASE_URL) from the backup stored at the specified URL"
     end
 
     # pgpipe commands for migration purposes
@@ -271,18 +261,6 @@ module Heroku::Command
         ticks +=1
         sleep 1
       end
-    end
-
-    def spinner(ticks)
-      %w(/ - \\ |)[ticks % 4]
-    end
-
-    def redisplay(line, line_break = false)
-      display("\r\e[0K#{line}", line_break)
-    end
-
-    def display_info(label, info)
-      display(format("%-12s %s", label, info))
     end
 
     def display_progress_part(part, ticks)
