@@ -21,8 +21,34 @@ module Heroku::Command
 
     # pgpipe commands for migration purposes
     Help.group("heroku-pgbackups-legacy") do |group|
-      group.command "pg:legacy:backup_url [<name>]", "get download URL for a pgdump backup"
       group.command "pg:legacy:backups",             "list pgdump backups"
+      group.command "pg:legacy:backup_url [<name>]", "get download URL for a pgdump backup"
+    end
+
+    # shim classes for deeper namespaces
+    class Backups < BaseWithApp
+      def initialize(args, heroku=nil)
+        @pg = Heroku::Command::Pg.new(args.clone)
+        super
+      end
+
+      def destroy
+        puts "DESTROYING"
+      end
+
+      def download
+        puts "DOWNLOADING"
+      end
+    end
+
+    class Legacy < Backups
+      def backups
+        @pg.legacy_backups
+      end
+
+      def backup_url
+        @pg.legacy_backup_url
+      end
     end
 
     def initialize(*args)
@@ -162,13 +188,13 @@ module Heroku::Command
       end
     end
 
-    def backup_url
+    def legacy_backup_url
       with_optionally_named_backup do |backup|
         display("URL for backup #{backup[:name]}:\n#{backup[:dump_url]}")
       end
     end
 
-    def backups
+    def legacy_backups
       backups = heroku_postgresql_client.get_backups
       valid_backups = backups.select { |b| !b[:error_at] }
       if backups.empty?
