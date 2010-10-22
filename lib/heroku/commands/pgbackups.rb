@@ -75,8 +75,8 @@ module Heroku::Command
 
     def restore
       db_id = extract_option("--db")
+      confirm = extract_option('--confirm', false) # extract now but confirm later
       to_name, to_url = resolve_db_id(db_id)
-      confirm_command
       backup_id = args.shift
 
       if backup_id =~ /^http(s?):\/\//
@@ -94,11 +94,15 @@ module Heroku::Command
         from_name = "BACKUP"
       end
 
-      display ""
+      display "=== Restore details"
       display_info("App",       @app)
       display_info("Backup",    "Taken from #{backup['from_name']} at #{backup['created_at']}") if backup
       display_info("Database",  db_id)
       display_info("Size",      backup['size']) if backup
+      display ""
+
+      @args += ['--confirm', confirm] # re-add confirm value 
+      confirm_command
 
       result = transfer!(from_url, from_name, to_url, to_name)
 
