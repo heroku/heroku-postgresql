@@ -128,7 +128,7 @@ module Heroku::Command
       display_info("Backup Time",   b["created_at"])
       display_info("Database",      b["from_name"])
       display_info("Size",          b["size"])
-      display_info("URL",           b["public_url"])
+      display_info("URL",           "'" + b["public_url"] + "'")
     end
 
     def download
