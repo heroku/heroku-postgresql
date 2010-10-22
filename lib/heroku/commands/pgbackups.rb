@@ -18,7 +18,7 @@ module Heroku::Command
       super
       @config_vars = heroku.config_vars(app)
       @pgbackups_url = ENV["PGBACKUPS_URL"] || @config_vars["PGBACKUPS_URL"]
-      abort("heroku-pgbackups addon is not installed.") unless @pgbackups_url
+      abort(" !   Please enable the pgbackups:free addon before capturing a backup") unless @pgbackups_url
     end
 
     def pgbackup_client
