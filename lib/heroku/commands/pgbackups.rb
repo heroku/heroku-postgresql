@@ -17,12 +17,12 @@ module Heroku::Command
     def initialize(*args)
       super
       @config_vars = heroku.config_vars(app)
+      @pgbackups_url = ENV["PGBACKUPS_URL"] || @config_vars["PGBACKUPS_URL"]
+      abort("heroku-pgbackups addon is not installed.") unless @pgbackups_url
     end
 
     def pgbackup_client
-      url = ENV["PGBACKUPS_URL"] || @config_vars["PGBACKUPS_URL"]
-      abort("heroku-pgbackups addon is not installed.") unless url
-      @pgbackup_client ||= PGBackups::Client.new(url)
+      @pgbackup_client ||= PGBackups::Client.new(@pgbackups_url)
     end
 
     def pg_config_var_names
