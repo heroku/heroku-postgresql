@@ -56,13 +56,11 @@ module Heroku::Command
 
     def capture
       db_id     = args.shift
-      backup_id = args.shift
 
       from_name, from_url = resolve_db_id(db_id, :default => "DATABASE_URL")
 
       to_name = "BACKUP"
       to_url = nil # server will assign
-      to_url = "backup://#{backup_id}" if backup_id
 
       result = transfer!(from_url, from_name, to_url, to_name)
 
