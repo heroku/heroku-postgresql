@@ -14,8 +14,8 @@ module Heroku::Command
       end
 
       confirmed_app = extract_option('--confirm', false)
-      display message
       unless confirmed_app == app
+        display message
         raise(CommandFailed, "Add '--confirm #{app}' to execute this command.")
       else
         display("Command confirmed for #{app}. Proceeding.")
