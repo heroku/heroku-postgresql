@@ -9,38 +9,10 @@ module Heroku::Command
       group.command "pg:detach", "revert to using the shared Postgres database"
       group.command "pg:psql",   "open a psql shell to the database"
       group.command "pg:ingress", "allow new connections from this IP to the database for one minute"
-    end
 
-    # pgpipe commands for migration purposes
-    Help.group("heroku-pgbackups-legacy") do |group|
-      group.command "pg:legacy:backups",             "list pgdump backups"
-      group.command "pg:legacy:backup_url [<name>]", "get download URL for a pgdump backup"
-    end
-
-    # shim classes for deeper namespaces
-    class Backups < BaseWithApp
-      def initialize(args, heroku=nil)
-        @pg = Heroku::Command::Pg.new(args.clone)
-        super
-      end
-
-      def destroy
-        @pg.destroy
-      end
-
-      def download
-        @pg.download
-      end
-    end
-
-    class Legacy < Backups
-      def backups
-        @pg.legacy_backups
-      end
-
-      def backup_url
-        @pg.legacy_backup_url
-      end
+      # legacy pgpipe methods
+      group.command "pg:backups",             "list legacy backups"
+      group.command "pg:backup_url [<name>]", "get download URL for a legacy backup"
     end
 
     def initialize(*args)
@@ -153,13 +125,12 @@ module Heroku::Command
       end
     end
 
-    def legacy_backup_url
-      with_optionally_named_backup do |backup|
-        display("URL for backup #{backup[:name]}:\n#{backup[:dump_url]}")
-      end
+    def backup
+      abort("This feature has been deprecated. Please see http://docs.heroku.com/pgbackups#legacy")
     end
 
-    def legacy_backups
+    def backups
+      display "This feature has been deprecated. Please see http://docs.heroku.com/pgbackups#legacy\n"
       backups = heroku_postgresql_client.get_backups
       valid_backups = backups.select { |b| !b[:error_at] }
       if backups.empty?
@@ -177,6 +148,14 @@ module Heroku::Command
             end
           display(format("%-#{name_width}s  %s", b[:name], state))
         end
+      end
+    end
+
+    def backup_url
+      display "This feature has been deprecated. Please see http://docs.heroku.com/pgbackups#legacy\n"
+
+      with_optionally_named_backup do |backup|
+        display("URL for backup #{backup[:name]}:\n#{backup[:dump_url]}")
       end
     end
 
