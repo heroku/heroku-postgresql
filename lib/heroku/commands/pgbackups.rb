@@ -87,7 +87,7 @@ module Heroku::Command
           backup = pgbackup_client.get_backup(backup_id)
           abort("Backup #{backup_id} already deleted.") if backup["destroyed_at"]
         else
-          backup = pgbackup_client.get_backups(:latest => true)
+          backup = pgbackup_client.get_latest_backup
         end
 
         from_url  = backup["to_url"]
@@ -121,7 +121,7 @@ module Heroku::Command
       if name = args.shift
         b = pgbackup_client.get_backup(name)
       else
-        b = pgbackup_client.get_backups(:latest => true)
+        b = pgbackup_client.get_latest_backup
       end
 
       display "=== Backup #{backup_name(b['to_url'])}"
@@ -140,7 +140,7 @@ module Heroku::Command
       if backup_id
         backup = pgbackup_client.get_backup(backup_id)
       else
-        backup = pgbackup_client.get_backups(:latest => true)
+        backup = pgbackup_client.get_latest_backup
       end
 
       outfile = File.basename(backup["to_url"])

@@ -49,13 +49,17 @@ module PGBackups
 
     def get_backups(opts={})
       resource = authenticated_resource("/client/backups")
-      params = !opts[:latest] ? {} : {:latest => true}
-      JSON.parse resource.get(:params => params).body
+      JSON.parse resource.get.body
     end
 
     def get_backup(name, opts={})
       name = URI.escape(name)
       resource = authenticated_resource("/client/backups/#{name}")
+      JSON.parse resource.get.body
+    end
+
+    def get_latest_backup
+      resource = authenticated_resource("/client/latest_backup")
       JSON.parse resource.get.body
     end
 
