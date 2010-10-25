@@ -32,14 +32,8 @@ module Heroku::Command
     end
 
     def resolve_db_id(name, opts={})
-      if !name && opts[:default]
-        name = opts[:default]
-        info = "Backing up the default DB, #{name}."
-        info += " (Options are: #{pg_config_var_names.join(', ')})" if pg_config_var_names.length > 2
-        display info
-      end
+      name = opts[:default] if !name && opts[:default]
 
-      # try to find addon config var name from all config vars
       # if name is 'DATABASE_URL', try to return the addon config var name for better accounting
       addon_config_vars = pg_config_var_names - ["DATABASE_URL"]
       addon_config_vars.each { |n|
@@ -55,20 +49,21 @@ module Heroku::Command
     end
 
     def capture
-      db_id     = args.shift
-
+      db_id = args.shift
       from_name, from_url = resolve_db_id(db_id, :default => "DATABASE_URL")
+      db_id ||= "DATABASE_URL"
 
       to_name = "BACKUP"
       to_url = nil # server will assign
 
-      result = transfer!(from_url, from_name, to_url, to_name)
-
-      to_uri = URI.parse result["to_url"]
+      backup = transfer!(from_url, from_name, to_url, to_name)
+      to_uri = URI.parse backup["to_url"]
       backup_id = File.basename(to_uri.path, '.*')
+      display "\n#{db_id}  ----backup--->  #{backup_id}"
 
-      abort("Error. Backup not created.") if result["error_at"]
-      display("Backup id #{backup_id} created.")
+      poll_transfer! backup
+
+      abort(" !    An error occurred and your backup did not finish.") if backup["error_at"]
     end
 
     def restore
@@ -192,9 +187,11 @@ module Heroku::Command
       parts.slice(4..-1).join('/').gsub(/\.dump$/, '')
     end
 
-    def transfer!(from_url, from_name, to_url, to_name, opts={})
-      transfer = pgbackup_client.create_transfer(from_url, to_url, :from_name => from_name, :to_name => to_name)
+    def transfer!(from_url, from_name, to_url, to_name)
+      pgbackup_client.create_transfer(from_url, to_url, :from_name => from_name, :to_name => to_name)
+    end
 
+    def poll_transfer!(transfer)
       display "\n"
 
       if transfer["errors"]
@@ -202,7 +199,7 @@ module Heroku::Command
       end
 
       while true
-        update_display(transfer, opts)
+        update_display(transfer)
         break if transfer["finished_at"]
 
         sleep 1
@@ -214,7 +211,7 @@ module Heroku::Command
       return transfer
     end
 
-    def update_display(transfer, opts={})
+    def update_display(transfer)
       @ticks            ||= 0
       @last_updated_at  ||= 0
       @last_logs        ||= []
@@ -224,7 +221,7 @@ module Heroku::Command
 
       if !transfer["log"]
         @last_progress = ['pending', nil]
-        redisplay "Pending ... #{spinner(@ticks)}"
+        redisplay "Pending... #{spinner(@ticks)}"
       else
         logs        = transfer["log"].split("\n")
         new_logs    = logs - @last_logs
@@ -238,7 +235,7 @@ module Heroku::Command
 
           if ['done', 'error'].include? amount
             # step is done, explicitly print result and newline
-            redisplay "#{@last_progress[0].capitalize} ... #{@last_progress[1]}, #{amount}\n"
+            redisplay "#{@last_progress[0].capitalize}... #{@last_progress[1]}, #{amount}\n"
           end
 
           # store progress, last one in the logs will get displayed
@@ -247,7 +244,7 @@ module Heroku::Command
 
         step, amount = @last_progress
         unless ['done', 'error'].include? amount
-          redisplay "#{step.capitalize} ... #{amount} #{spinner(@ticks)}"
+          redisplay "#{step.capitalize}... #{amount} #{spinner(@ticks)}"
         end
       end
     end
