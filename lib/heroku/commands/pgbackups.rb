@@ -61,46 +61,58 @@ module Heroku::Command
       backup_id = File.basename(to_uri.path, '.*')
       display "\n#{db_id}  ----backup--->  #{backup_id}"
 
-      poll_transfer! backup
+      backup = poll_transfer!(backup)
 
       abort(" !    An error occurred and your backup did not finish.") if backup["error_at"]
     end
 
     def restore
       db_id = extract_option("--db")
+      to_name, to_url = resolve_db_id(db_id, :default => "DATABASE_URL")
+      db_id ||= "DATABASE_URL"
+
       confirm = extract_option('--confirm', false) # extract now but confirm later
-      to_name, to_url = resolve_db_id(db_id)
       backup_id = args.shift
 
       if backup_id =~ /^http(s?):\/\//
         from_url  = backup_id
         from_name = "EXTERNAL_BACKUP"
+        from_uri  = URI.parse backup_id
+        backup_id = File.basename(from_uri.path)
       else
         if backup_id
           backup = pgbackup_client.get_backup(backup_id)
           abort("Backup #{backup_id} already deleted.") if backup["destroyed_at"]
         else
           backup = pgbackup_client.get_latest_backup
+          to_uri = URI.parse backup["to_url"]
+          backup_id = File.basename(to_uri.path, '.*')
+          backup_id = "#{backup_id} (most recent)"
         end
 
         from_url  = backup["to_url"]
         from_name = "BACKUP"
       end
 
-      display "=== Restore details"
-      display_info("App",       @app)
-      display_info("Backup",    "Taken from #{backup['from_name']} at #{backup['created_at']}") if backup
-      display_info("Database",  db_id)
-      display_info("Size",      backup['size']) if backup
-      display ""
+      padding = " " * "#{db_id}  <---restore---  ".length
+      display "\n#{db_id}  <---restore---  #{backup_id}"
+      if backup
+        display padding + "#{backup['from_name']}"
+        display padding + "#{backup['created_at']}"
+        display padding + "#{backup['size']}"
+      end
 
-      @args += ['--confirm', confirm] # re-add confirm value 
-      confirm_command
+      unless confirm && confirm == @app
+        display ""
+        display " !    Potentially Destructive Action"
+        display " !    To proceed, re-run this command with --confirm myapp"
+        abort
+      end
 
-      result = transfer!(from_url, from_name, to_url, to_name)
+      restore = transfer!(from_url, from_name, to_url, to_name)
+      restore = poll_transfer!(restore)
 
-      abort("Error. Restore not successful.") if result["error_at"]
-      display("#{db_id} restored.")
+      abort(" !    An error occurred and your restore did not finish.") if restore["error_at"]
     end
 
     def list
