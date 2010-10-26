@@ -120,7 +120,7 @@ module Heroku::Command
       with_psql_binary do
         with_heroku_postgresql_database do |name, url|
           database = heroku_postgresql_client(url).get_database
-          abort "The database is not available" unless database[:state] == "available"
+          abort " !  The database is not available" unless database[:state] == "available"
           display("Connecting to database for app #{app} ...")
           heroku_postgresql_client(url).ingress
           url = URI.parse(url)
