@@ -18,12 +18,7 @@ module PgUtils
   end
 
   def resolve_db_id(name, opts={})
-    if !name && opts[:default]
-      name = opts[:default]
-      info = "Using the default database in #{name}."
-      info += " (Options are: #{pg_config_var_names.join(', ')})" if pg_config_var_names.length > 2
-      display info
-    end
+    name = opts[:default] if !name && opts[:default]
 
     # try to find addon config var name from all config vars
     # if name is 'DATABASE_URL', try to return the addon config var name for better accounting
