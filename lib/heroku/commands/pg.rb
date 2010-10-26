@@ -15,21 +15,19 @@ module Heroku::Command
       group.command "pg:backup_url [<name>]", "get download URL for a legacy backup"
     end
 
+    def heroku_postgresql_var_names
+      pg_config_var_names.select { |n| n.match("HEROKU_POSTGRESQL") }
+    end
+
     def initialize(*args)
       super
       @config_vars =  heroku.config_vars(app)
-      @heroku_postgresql_url = ENV["HEROKU_POSTGRESQL_URL"] ||
-                               @config_vars["HEROKU_POSTGRESQL_URL"] ||
-                               @config_vars["HEROKU_POSTGRESQL_RONIN_URL"] ||
-                               @config_vars["HEROKU_POSTGRESQL_FUGU_URL"] ||
-                               @config_vars["HEROKU_POSTGRESQL_NINJA_URL"] ||
-                               @config_vars["HEROKU_POSTGRESQL_KAPPA_URL"]
 
-      @database_url = ENV["DATABASE_URL"] || @config_vars["DATABASE_URL"]
-      if !@heroku_postgresql_url
+      if !heroku_postgresql_var_names
         abort("The addon is not installed for the app #{app}")
       end
-      uri = URI.parse(@heroku_postgresql_url.gsub("_", "-"))
+
+      uri = URI.parse(@config_vars[heroku_postgresql_var_names[0]].gsub("_", "-"))
       @database_user =     uri.user
       @database_password = uri.password
       @database_host =     uri.host
@@ -37,6 +35,11 @@ module Heroku::Command
     end
 
     def info
+      database = resolve_db_id(args.shift, :default => "DATABASE_URL")
+
+      puts database
+      return
+
       database = heroku_postgresql_client.get_database
       display("=== #{app} heroku-postgresql database")
 
