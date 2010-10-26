@@ -29,7 +29,15 @@ module Heroku::Command
       if !heroku_postgresql_var_names
         abort("The addon is not installed for the app #{app}")
       end
-      (name, database) = resolve_db_id(args.shift, :default => "DATABASE_URL")
+
+      input = args.shift
+      (name, database) = resolve_db_id(input, :default => "DATABASE_URL")
+
+      unless input
+        display "Selecting #{name} (DATABASE_URL)."
+        display "(Options are: #{pg_config_var_names.join(', ')})" if pg_config_var_names.length > 2
+      end
+
 
       unless name.match("HEROKU_POSTGRESQL")
         display " !  This command is only available for addon databases."
