@@ -36,8 +36,8 @@ module PgUtils
     # database url isn't an alias for another var
     return name, @config_vars[name] if name == "DATABASE_URL"
 
-    abort("DB #{name} not found in config. (Options are: #{pg_config_var_names.join(', ')})") if name
-    abort("DB is required. (Options are: #{pg_config_var_names.join(', ')})") unless opts[:default]
+    abort("Database #{name} not found in config. (Options are: #{pg_config_var_names.join(', ')})") if name
+    abort("Database is required. (Options are: #{pg_config_var_names.join(', ')})") unless opts[:default]
   end
 
 end
