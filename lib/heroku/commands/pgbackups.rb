@@ -5,8 +5,8 @@ module Heroku::Command
     include PgUtils
 
     Help.group("pgbackups") do |group|
+      group.command "pgbackups",                                  "list captured backups"
       group.command "pgbackups:capture [<DB_ID>]",                "capture a backup from database ID (e.g. DATABASE_URL)"
-      group.command "pgbackups:list",                             "list captured backups"
       group.command "pgbackups:info <BACKUP_ID>",                 "list details for backup"
       group.command "pgbackups:download <BACKUP_ID>",             "download a backup"
       group.command "pgbackups:destroy <BACKUP_ID>",              "destroy a backup"
@@ -18,11 +18,36 @@ module Heroku::Command
       super
       @config_vars = heroku.config_vars(app)
       @pgbackups_url = ENV["PGBACKUPS_URL"] || @config_vars["PGBACKUPS_URL"]
-      abort(" !   Please enable the pgbackups:free addon before capturing a backup") unless @pgbackups_url
+      abort(" !   Please add the pgbackups addon first.") unless @pgbackups_url
     end
 
     def pgbackup_client
       @pgbackup_client ||= PGBackups::Client.new(@pgbackups_url)
+    end
+
+    def index
+      backups = []
+      pgbackup_client.get_transfers.each { |t|
+        next unless t['to_name'] == 'BACKUP' && !t['error_at']
+        backups << [backup_name(t['to_url']), t['created_at'], t['size'], t['from_name'], ]
+      }
+
+      abort("No backups. Capture one with `heroku pg:backup`.") if backups.empty?
+      display Display.new.render([["ID", "Backup Time", "Size", "Database"]], backups)
+    end
+
+    def info
+      if name = args.shift
+        b = pgbackup_client.get_backup(name)
+      else
+        b = pgbackup_client.get_latest_backup
+      end
+
+      display "=== Backup #{backup_name(b['to_url'])}"
+      display_info("Backup Time",   b["created_at"])
+      display_info("Database",      b["from_name"])
+      display_info("Size",          b["size"])
+      display_info("URL",           "'" + b["public_url"] + "'")
     end
 
 
@@ -80,31 +105,6 @@ module Heroku::Command
 
       abort("Error. Restore not successful.") if result["error_at"]
       display("#{db_id} restored.")
-    end
-
-    def list
-      backups = []
-      pgbackup_client.get_transfers.each { |t|
-        next unless t['to_name'] == 'BACKUP' && !t['error_at']
-        backups << [backup_name(t['to_url']), t['created_at'], t['size'], t['from_name'], ]
-      }
-
-      abort("No backups. Capture one with `heroku pg:backup`.") if backups.empty?
-      display Display.new.render([["ID", "Backup Time", "Size", "Database"]], backups)
-    end
-
-    def info
-      if name = args.shift
-        b = pgbackup_client.get_backup(name)
-      else
-        b = pgbackup_client.get_latest_backup
-      end
-
-      display "=== Backup #{backup_name(b['to_url'])}"
-      display_info("Backup Time",   b["created_at"])
-      display_info("Database",      b["from_name"])
-      display_info("Size",          b["size"])
-      display_info("URL",           "'" + b["public_url"] + "'")
     end
 
     def download
