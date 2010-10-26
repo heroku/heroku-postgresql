@@ -4,15 +4,16 @@ module Heroku::Command
 
     Help.group("heroku-postgresql") do |group|
       group.command "pg:info",   "show database status"
-      group.command "pg:wait",   "wait for the database to come online"
-      group.command "pg:attach", "use the heroku-postgresql database for the DATABASE_URL"
-      group.command "pg:detach", "revert to using the shared Postgres database"
+      group.command "pg:promote", "set a database identifier to the DATABASE_URL"
       group.command "pg:psql",   "open a psql shell to the database"
       group.command "pg:ingress", "allow new connections from this IP to the database for one minute"
 
-      # legacy pgpipe methods
-      group.command "pg:backups",             "list legacy backups"
-      group.command "pg:backup_url [<name>]", "get download URL for a legacy backup"
+      # hidden
+      # group.command "pg:wait",   "wait for the database to come online"
+
+      # hidden legacy pgpipe methods
+      # group.command "pg:backups",             "list legacy backups"
+      # group.command "pg:backup_url [<name>]", "get download URL for a legacy backup"
     end
 
     def heroku_postgresql_var_names
