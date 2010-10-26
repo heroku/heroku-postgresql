@@ -23,7 +23,6 @@ module Heroku::Command
     def initialize(*args)
       super
       @config_vars =  heroku.config_vars(app)
-
     end
 
     def with_heroku_postgresql_database
@@ -33,7 +32,7 @@ module Heroku::Command
       (name, database) = resolve_db_id(args.shift, :default => "DATABASE_URL")
 
       unless name.match("HEROKU_POSTGRESQL")
-        display " !  Info is only available for addon databases."
+        display " !  This command is only available for addon databases."
         return
       end
 
@@ -111,22 +110,28 @@ module Heroku::Command
 
     def psql
       with_psql_binary do
-        with_running_database do |database|
+        with_heroku_postgresql_database do |name, url|
+          database = heroku_postgresql_client(url).get_database
+          abort "The database is not available" unless database[:state] == "available"
           display("Connecting to database for app #{app} ...")
-          heroku_postgresql_client.ingress
-          ENV["PGPASSWORD"] = @database_password
-          cmd = "psql -U #{@database_user} -h #{@database_host} #{@database_name}"
+          heroku_postgresql_client(url).ingress
+          url = URI.parse(url)
+          ENV["PGPASSWORD"] = url.password
+          cmd = "psql -U #{url.user} -h #{url.host} #{url.path[1..-1]}"
           system(cmd)
         end
       end
     end
 
     def ingress
-      with_running_database do |database|
+      with_heroku_postgresql_database do |name, url|
+        database = heroku_postgresql_client(url).get_database
+        abort "The database is not available" unless database[:state] == "available"
         display("Opening access to the database.")
-        heroku_postgresql_client.ingress
+        heroku_postgresql_client(url).ingress
+        url = URI.parse(url)
         display("The database will accept new incoming connections for the next 60s.")
-        display("Connection info string: \"dbname=#{@database_name} host=#{@database_host} user=#{@database_user} password=#{@database_password}\"")
+        display("Connection info string: \"dbname=#{url.path[1..-1]} host=#{url.host} user=#{url.user} password=#{url.password}\"")
       end
     end
 
@@ -166,14 +171,6 @@ module Heroku::Command
 
     protected
 
-    def with_running_database
-      database = heroku_postgresql_client.get_database
-      if database[:state] == "available"
-        yield database
-      else
-        display("The database is not running")
-      end
-    end
 
     def with_optionally_named_backup
       backup_name = args.first && args.first.strip

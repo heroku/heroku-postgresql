@@ -20,7 +20,7 @@ module PgUtils
   def resolve_db_id(name, opts={})
     if !name && opts[:default]
       name = opts[:default]
-      info = "Selecting the default, #{name}."
+      info = "Using the default database in #{name}."
       info += " (Options are: #{pg_config_var_names.join(', ')})" if pg_config_var_names.length > 2
       display info
     end
