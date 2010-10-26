@@ -23,47 +23,55 @@ module Heroku::Command
       super
       @config_vars =  heroku.config_vars(app)
 
+    end
+
+    def with_heroku_postgresql_database
       if !heroku_postgresql_var_names
         abort("The addon is not installed for the app #{app}")
       end
-    end
-
-    def info
       (name, database) = resolve_db_id(args.shift, :default => "DATABASE_URL")
-
-      uri = URI.parse(database)
 
       unless name.match("HEROKU_POSTGRESQL")
         display " !  Info is only available for addon databases."
         return
       end
 
-      heroku_postgresql_client = HerokuPostgresql::Client.new(uri.user, uri.password, uri.path[1..-1])
-
-      database = heroku_postgresql_client.get_database
-      display("=== #{app} heroku-postgresql database")
-
-      display_info("State",
-        "#{database[:state]} for " +
-        "#{delta_format(Time.parse(database[:state_updated_at]))}")
-
-      if database[:num_bytes] && database[:num_tables]
-        display_info("Data size",
-          "#{size_format(database[:num_bytes])} in " +
-          "#{database[:num_tables]} table#{database[:num_tables] == 1 ? "" : "s"}")
-      end
-
-      if @heroku_postgresql_url && !(@heroku_postgresql_url =~ /NOT.READY/)
-        display_info("URL", @heroku_postgresql_url)
-      end
-
-      if version = database[:postgresql_version]
-        display_info("PG version", version)
-      end
-
-      display_info("Born", time_format(database[:created_at]))
+      yield name, database
     end
 
+    def heroku_postgresql_client(url)
+      uri = URI.parse(url)
+      HerokuPostgresql::Client.new(uri.user, uri.password, uri.path[1..-1])
+    end
+
+    def info
+      with_heroku_postgresql_database do |name, url|
+        database = heroku_postgresql_client(url).get_database
+        display("=== #{app} heroku-postgresql database")
+
+        display_info("State",
+          "#{database[:state]} for " +
+          "#{delta_format(Time.parse(database[:state_updated_at]))}")
+
+        if database[:num_bytes] && database[:num_tables]
+          display_info("Data size",
+            "#{size_format(database[:num_bytes])} in " +
+            "#{database[:num_tables]} table#{database[:num_tables] == 1 ? "" : "s"}")
+        end
+
+        if @heroku_postgresql_url && !(@heroku_postgresql_url =~ /NOT.READY/)
+          display_info("URL", @heroku_postgresql_url)
+        end
+
+        if version = database[:postgresql_version]
+          display_info("PG version", version)
+        end
+
+        display_info("Born", time_format(database[:created_at]))
+      end
+    end
+
+    # TODO: this should check that no heroku database is pre-running
     def wait
       ticking do |ticks|
         database = heroku_postgresql_client.get_database
@@ -83,29 +91,20 @@ module Heroku::Command
       end
     end
 
-    def attach
-      with_running_database do |database|
-        if @database_url == @heroku_postgresql_url
-          display("The database is already attached to app #{app}")
-        else
-          display("Attatching database to app #{app} ... ", false)
-          res = heroku.add_config_vars(app, {"DATABASE_URL" => @heroku_postgresql_url})
-          display("done")
-        end
+    def promote
+      name = args.shift
+      if name == "DATABASE_URL"
+        puts " !  This command promotes a database to DATABASE_URL." 
+        return
+      end
+
+      (name, url) = resolve_db_id(name)
+
+      if (url != @config_vars["DATABASE_URL"])
+        res = heroku.add_config_vars(app, {"DATABASE_URL" => url})
       end
     end
 
-    def detach
-      if @database_url.nil?
-        display("A heroku-postgresql database is not attached to app #{app}")
-      elsif @database_url != @heroku_postgresql_url
-        display("Database attached to app #{app} is not a heroku-postgresql database")
-      else
-        display("Detatching database from app #{app} ... ", false)
-        res = heroku.remove_config_var(app, "DATABASE_URL")
-        display("done")
-      end
-    end
 
     def psql
       with_psql_binary do
@@ -229,11 +228,6 @@ module Heroku::Command
       else
         display("Unrecognized binary #{binary}")
       end
-    end
-
-    def heroku_postgresql_client
-      ::HerokuPostgresql::Client.new(
-        @database_user, @database_password, @database_name)
     end
 
     def ticking
