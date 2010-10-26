@@ -103,6 +103,8 @@ module Heroku::Command
       if (url != @config_vars["DATABASE_URL"])
         res = heroku.add_config_vars(app, {"DATABASE_URL" => url})
       end
+
+      display "DATABASE_URL (#{name})     => #{url}"
     end
 
 
