@@ -26,19 +26,19 @@ module Heroku::Command
       if !heroku_postgresql_var_names
         abort("The addon is not installed for the app #{app}")
       end
-
-      uri = URI.parse(@config_vars[heroku_postgresql_var_names[0]].gsub("_", "-"))
-      @database_user =     uri.user
-      @database_password = uri.password
-      @database_host =     uri.host
-      @database_name =     uri.path[1..-1]
     end
 
     def info
-      database = resolve_db_id(args.shift, :default => "DATABASE_URL")
+      (name, database) = resolve_db_id(args.shift, :default => "DATABASE_URL")
 
-      puts database
-      return
+      uri = URI.parse(database)
+
+      unless name.match("HEROKU_POSTGRESQL")
+        display " !  Info is only available for addon databases."
+        return
+      end
+
+      heroku_postgresql_client = HerokuPostgresql::Client.new(uri.user, uri.password, uri.path[1..-1])
 
       database = heroku_postgresql_client.get_database
       display("=== #{app} heroku-postgresql database")
