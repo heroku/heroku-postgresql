@@ -32,7 +32,7 @@ module Heroku::Command
       end
 
       db_id = extract_option("--db")
-      (name, database) = resolve_db_id(input, :default => heroku_postgresql_var_names.first)
+      (name, database) = resolve_db_id(db_id, :default => heroku_postgresql_var_names.first)
 
       unless name.match("HEROKU_POSTGRESQL")
         abort " !  This command is only available for addon databases."

@@ -32,8 +32,8 @@ module PgUtils
     # database url isn't an alias for another var
     output = [name, @config_vars[name]] if !output && name == "DATABASE_URL"
 
-    unless input
-      display " === No database specified via --db, selecting a default."
+    if !input && opts[:default]
+      display "=== No database specified via --db, selecting a default."
 
       var_names = pg_config_var_names
       var_names = var_names - ["DATABASE_URL"] unless var_names.any? { |v| @config_vars[v] == @config_vars["DATABASE_URL"] }
@@ -50,13 +50,13 @@ module PgUtils
           "#{str}"
         end
       end.join(", ")
-      display " === #{result}"
+      display "=== #{result}"
     end
 
     return *output if output
 
     abort("Database #{name} not found in config. (Options are: #{pg_config_var_names.join(', ')})") if name
-    abort("Database is required. (Options are: #{pg_config_var_names.join(', ')})") unless opts[:default]
+    abort(" !   Rerun this command with a database to promote: \n !   #{pg_config_var_names.join(', ')}") unless opts[:default]
 
   end
 

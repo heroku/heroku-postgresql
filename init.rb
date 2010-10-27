@@ -11,7 +11,6 @@ module Heroku::Command
       confirmed_app = extract_option('--confirm', false)
 
       if confirmed_app != app
-        display ""
         display " !    Potentially Destructive Action"
         display " !    To proceed, re-run this command with --confirm #{@app}"
 
