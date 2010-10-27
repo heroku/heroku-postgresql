@@ -17,28 +17,46 @@ module PgUtils
     pg_config_vars.keys.sort!
   end
 
-  def resolve_db_id(name, opts={})
-    name = opts[:default] if !name && opts[:default]
+  def resolve_db_id(input, opts={})
+    name = input || opts[:default]
 
     # try to find addon config var name from all config vars
     # if name is 'DATABASE_URL', try to return the addon config var name for better accounting
+    output = nil
     addon_config_vars = pg_config_var_names - ["DATABASE_URL"]
     addon_config_vars.each { |n|
       next unless @config_vars[n] == @config_vars[name]
-      return n, @config_vars[n]
+      output = [n, @config_vars[n]]
     }
 
     # database url isn't an alias for another var
-    return name, @config_vars[name] if name == "DATABASE_URL"
+    output = [name, @config_vars[name]] if !output && name == "DATABASE_URL"
+
+    unless input
+      display " === No database specified via --db, selecting a default."
+
+      var_names = pg_config_var_names
+      var_names = var_names - ["DATABASE_URL"] unless var_names.any? { |v| @config_vars[v] == @config_vars["DATABASE_URL"] }
+
+      result = (pg_config_var_names - ["DATABASE_URL"]).map do |var|
+        str = var
+        if @config_vars[var] == @config_vars["DATABASE_URL"]
+          str += " (DATABASE_URL)"
+        end
+
+        if var == output[0]
+          "[#{str}]"
+        else
+          "#{str}"
+        end
+      end.join(", ")
+      display " === #{result}"
+    end
+
+    return *output if output
 
     abort("Database #{name} not found in config. (Options are: #{pg_config_var_names.join(', ')})") if name
     abort("Database is required. (Options are: #{pg_config_var_names.join(', ')})") unless opts[:default]
-
-    unless input
-      display "No database specified via --db, selecting a default."
-      display pg_config_var_names.map{ |str| str == name ? " --> #{str}" : "     #{str}" }.join("\n")
-      display ""
-    end
 
   end
 

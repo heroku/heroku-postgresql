@@ -31,23 +31,7 @@ module Heroku::Command
         abort("The addon is not installed for the app #{app}")
       end
 
-      # find a non "--foo bar" parameter
-      input = nil
-      skip = false
-      args.each do |arg|
-        if arg.match(/^--/)
-          skip = true
-          next
-        end
-
-        if skip
-          skip = false
-          next
-        end
-
-        input = arg
-        break
-      end
+      db_id = extract_option("--db")
       (name, database) = resolve_db_id(input, :default => heroku_postgresql_var_names.first)
 
       unless name.match("HEROKU_POSTGRESQL")
