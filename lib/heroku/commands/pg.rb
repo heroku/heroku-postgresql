@@ -31,17 +31,11 @@ module Heroku::Command
       end
 
       input = args.shift
-      (name, database) = resolve_db_id(input, :default => "DATABASE_URL")
-
-      unless input
-        display "Selecting #{name} (DATABASE_URL)."
-        display "(Options are: #{pg_config_var_names.join(', ')})" if pg_config_var_names.length > 2
-      end
+      (name, database) = resolve_db_id(input, :default => heroku_postgresql_var_names.first)
 
 
       unless name.match("HEROKU_POSTGRESQL")
-        display " !  This command is only available for addon databases."
-        return
+        abort " !  This command is only available for addon databases."
       end
 
       yield name, database
@@ -81,20 +75,22 @@ module Heroku::Command
 
     # TODO: this should check that no heroku database is pre-running
     def wait
-      ticking do |ticks|
-        database = heroku_postgresql_client.get_database
-        state = database[:state]
-        if state == "available"
-          redisplay("The database is now ready", true)
-          break
-        elsif state == "deprovisioned"
-          redisplay("The database has been destroyed", true)
-          break
-        elsif state == "failed"
-          redisplay("The database encountered an error", true)
-          break
-        else
-          redisplay("#{state.capitalize} database #{spinner(ticks)}", false)
+      with_heroku_postgresql_database do |name, url|
+        ticking do |ticks|
+          database = heroku_postgresql_client(url).get_database
+          state = database[:state]
+          if state == "available"
+            redisplay("The database is now ready", true)
+            break
+          elsif state == "deprovisioned"
+            redisplay("The database has been destroyed", true)
+            break
+          elsif state == "failed"
+            redisplay("The database encountered an error", true)
+            break
+          else
+            redisplay("#{state.capitalize} database #{spinner(ticks)}", false)
+          end
         end
       end
     end

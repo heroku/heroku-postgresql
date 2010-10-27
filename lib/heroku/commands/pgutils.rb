@@ -33,6 +33,13 @@ module PgUtils
 
     abort("Database #{name} not found in config. (Options are: #{pg_config_var_names.join(', ')})") if name
     abort("Database is required. (Options are: #{pg_config_var_names.join(', ')})") unless opts[:default]
+
+    unless input
+      display "No database specified via --db, selecting a default."
+      display pg_config_var_names.map{ |str| str == name ? " --> #{str}" : "     #{str}" }.join("\n")
+      display ""
+    end
+
   end
 
 end

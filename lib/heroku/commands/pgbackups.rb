@@ -10,8 +10,8 @@ module Heroku::Command
       group.command "pgbackups:info <BACKUP_ID>",                 "list details for backup"
       group.command "pgbackups:download <BACKUP_ID>",             "download a backup"
       group.command "pgbackups:destroy <BACKUP_ID>",              "destroy a backup"
-      group.command "pgbackups:restore <BACKUP_ID> --db <DB_ID>", "restore the database ID (e.g. DATABASE_URL) from the specified backup"
-      group.command "pgbackups:restore <url> --db <DB_ID>",       "restore the database ID (e.g. DATABASE_URL) from the backup stored at the specified URL"
+      group.command "pgbackups:restore <BACKUP_ID> --db <DB_ID>", "restore the database ID (e.g. DATABASE_URL) from a backup"
+      group.command "pgbackups:restore <url> --db <DB_ID>",       "restore the database ID (e.g. DATABASE_URL) from a URL"
     end
 
     def initialize(*args)
@@ -32,7 +32,7 @@ module Heroku::Command
         backups << [backup_name(t['to_url']), t['created_at'], t['size'], t['from_name'], ]
       }
 
-      abort("No backups. Capture one with `heroku pg:backup`.") if backups.empty?
+      abort("No backups. Capture one with `heroku pgbackups:capture`.") if backups.empty?
       display Display.new.render([["ID", "Backup Time", "Size", "Database"]], backups)
     end
 
@@ -108,7 +108,7 @@ module Heroku::Command
       unless confirm && confirm == @app
         display ""
         display " !    Potentially Destructive Action"
-        display " !    To proceed, re-run this command with --confirm myapp"
+        display " !    To proceed, re-run this command with --confirm #{@app}"
         abort
       end
 
