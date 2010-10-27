@@ -7,8 +7,7 @@ module Heroku::Command
     Help.group("pgbackups") do |group|
       group.command "pgbackups",                                  "list captured backups"
       group.command "pgbackups:capture [<DB_ID>]",                "capture a backup from database ID (e.g. DATABASE_URL)"
-      group.command "pgbackups:info <BACKUP_ID>",                 "list details for backup"
-      group.command "pgbackups:download <BACKUP_ID>",             "download a backup"
+      group.command "pgbackups:url [<BACKUP_ID>]",                "get a temporary URL for a backup"
       group.command "pgbackups:destroy <BACKUP_ID>",              "destroy a backup"
       group.command "pgbackups:restore <BACKUP_ID> --db <DB_ID>", "restore the database ID (e.g. DATABASE_URL) from a backup"
       group.command "pgbackups:restore <url> --db <DB_ID>",       "restore the database ID (e.g. DATABASE_URL) from a URL"
@@ -36,18 +35,14 @@ module Heroku::Command
       display Display.new.render([["ID", "Backup Time", "Size", "Database"]], backups)
     end
 
-    def info
+    def url
       if name = args.shift
         b = pgbackup_client.get_backup(name)
       else
         b = pgbackup_client.get_latest_backup
       end
-
-      display "=== Backup #{backup_name(b['to_url'])}"
-      display_info("Backup Time",   b["created_at"])
-      display_info("Database",      b["from_name"])
-      display_info("Size",          b["size"])
-      display_info("URL",           "'" + b["public_url"] + "'")
+      abort("No backup found.") unless b['public_url']
+      display b['public_url']
     end
 
 
@@ -80,7 +75,7 @@ module Heroku::Command
         from_url  = backup_id
         from_name = "EXTERNAL_BACKUP"
         from_uri  = URI.parse backup_id
-        backup_id = File.basename(from_uri.path)
+        backup_id = from_uri.path.empty? ? from_uri : File.basename(from_uri.path)
       else
         if backup_id
           backup = pgbackup_client.get_backup(backup_id)
@@ -110,45 +105,6 @@ module Heroku::Command
         restore = transfer!(from_url, from_name, to_url, to_name)
         restore = poll_transfer!(restore)
         abort(" !    An error occurred and your restore did not finish.") if restore["error_at"]
-      end
-    end
-
-    def download
-      abort("Please install either the 'curl' command line tools") if `which curl` == ""
-
-      @ticks = 0
-
-      backup_id = args.shift
-      if backup_id
-        backup = pgbackup_client.get_backup(backup_id)
-      else
-        backup = pgbackup_client.get_latest_backup
-      end
-
-      outfile = File.basename(backup["to_url"])
-      abort("'#{outfile}' already exists") if File.exists? outfile
-
-      PTY.spawn("curl -o #{outfile} \"#{backup["public_url"]}\"") do |reader, writer, pid|
-        output  = ""
-        line    = ""
-        begin
-          while reader.readpartial(4096, output)
-            @ticks += 1
-            output.each_char do |char|
-              if ["\r", "\n", "\r\n"].include? char # newline?
-                vals = line.scan(/[0-9.]+[BkMG]/)
-                if vals && vals[1]
-                  redisplay "Download... #{vals[1]}B / #{backup['size']} #{spinner(@ticks)}"
-                end
-                line = ""
-              else
-                line += char
-              end
-            end
-          end
-        rescue Errno::EIO, EOFError => e
-          redisplay "Download... #{backup['size']} / #{backup['size']}, done\n"
-        end
       end
     end
 
