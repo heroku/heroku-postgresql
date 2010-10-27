@@ -3,10 +3,11 @@ module Heroku::Command
     include PgUtils
 
     Help.group("heroku-postgresql") do |group|
-      group.command "pg:info",   "show database status"
+      group.command "pg:info",    "show database status"
       group.command "pg:promote", "set a database identifier to the DATABASE_URL"
-      group.command "pg:psql",   "open a psql shell to the database"
+      group.command "pg:psql",    "open a psql shell to the database"
       group.command "pg:ingress", "allow new connections from this IP to the database for one minute"
+      group.command "pg:reset",   "delete all data in the specified database"
 
       # hidden
       # group.command "pg:wait",   "wait for the database to come online"
@@ -30,9 +31,24 @@ module Heroku::Command
         abort("The addon is not installed for the app #{app}")
       end
 
-      input = args.shift
-      (name, database) = resolve_db_id(input, :default => heroku_postgresql_var_names.first)
+      # find a non "--foo bar" parameter
+      input = nil
+      skip = false
+      args.each do |arg|
+        if arg.match(/^--/)
+          skip = true
+          next
+        end
 
+        if skip
+          skip = false
+          next
+        end
+
+        input = arg
+        break
+      end
+      (name, database) = resolve_db_id(input, :default => heroku_postgresql_var_names.first)
 
       unless name.match("HEROKU_POSTGRESQL")
         abort " !  This command is only available for addon databases."
@@ -109,6 +125,20 @@ module Heroku::Command
       end
 
       display "DATABASE_URL (#{name})     => #{url}"
+    end
+
+    def reset
+      with_heroku_postgresql_database do |name, url|
+        display ""
+        display "#{name}  ---reset--->  #{name}"
+        display ""
+
+        if confirm_command
+          display("Resetting...")
+          heroku_postgresql_client(url).reset
+          redisplay("Resetting... done")
+        end
+      end
     end
 
 

@@ -72,9 +72,8 @@ module Heroku::Command
     def restore
       db_id = extract_option("--db")
       to_name, to_url = resolve_db_id(db_id, :default => "DATABASE_URL")
-      db_id ||= "DATABASE_URL"
+      db_id = to_name
 
-      confirm = extract_option('--confirm', false) # extract now but confirm later
       backup_id = args.shift
 
       if backup_id =~ /^http(s?):\/\//
@@ -97,25 +96,21 @@ module Heroku::Command
         from_name = "BACKUP"
       end
 
-      padding = " " * "#{db_id}  <---restore---  ".length
-      display "\n#{db_id}  <---restore---  #{backup_id}"
+      db_display = db_id
+      db_display += " (DATABASE_URL)" if db_id != "DATABASE_URL" && @config_vars[db_id] == @config_vars["DATABASE_URL"]
+      padding = " " * "#{db_display}  <---restore---  ".length
+      display "\n#{db_display}  <---restore---  #{backup_id}"
       if backup
         display padding + "#{backup['from_name']}"
         display padding + "#{backup['created_at']}"
         display padding + "#{backup['size']}"
       end
 
-      unless confirm && confirm == @app
-        display ""
-        display " !    Potentially Destructive Action"
-        display " !    To proceed, re-run this command with --confirm #{@app}"
-        abort
+      if confirm_command
+        restore = transfer!(from_url, from_name, to_url, to_name)
+        restore = poll_transfer!(restore)
+        abort(" !    An error occurred and your restore did not finish.") if restore["error_at"]
       end
-
-      restore = transfer!(from_url, from_name, to_url, to_name)
-      restore = poll_transfer!(restore)
-
-      abort(" !    An error occurred and your restore did not finish.") if restore["error_at"]
     end
 
     def download
@@ -143,7 +138,7 @@ module Heroku::Command
               if ["\r", "\n", "\r\n"].include? char # newline?
                 vals = line.scan(/[0-9.]+[BkMG]/)
                 if vals && vals[1]
-                  redisplay "Download ... #{vals[1]}B / #{backup['size']} #{spinner(@ticks)}"
+                  redisplay "Download... #{vals[1]}B / #{backup['size']} #{spinner(@ticks)}"
                 end
                 line = ""
               else
@@ -152,7 +147,7 @@ module Heroku::Command
             end
           end
         rescue Errno::EIO, EOFError => e
-          redisplay "Download ... #{backup['size']} / #{backup['size']}, done\n"
+          redisplay "Download... #{backup['size']} / #{backup['size']}, done\n"
         end
       end
     end

@@ -7,21 +7,18 @@ require "heroku/commands/pg"
 # monkey-patch in confirm_command until accepted upstread
 module Heroku::Command
   class Base
-    def confirm_command(message="This command requires confirmation.")
-      if extract_option('--force')
-        display "Command execution forced. Proceeding."
-        return true
-      end
-
+    def confirm_command
       confirmed_app = extract_option('--confirm', false)
-      unless confirmed_app == app
-        display message
-        raise(CommandFailed, "Add '--confirm #{app}' to execute this command.")
-      else
-        display("Command confirmed for #{app}. Proceeding.")
-      end
 
-      true
+      if confirmed_app != app
+        display ""
+        display " !    Potentially Destructive Action"
+        display " !    To proceed, re-run this command with --confirm #{@app}"
+
+        false
+      else
+        true
+      end
     end
   end
 end

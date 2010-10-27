@@ -18,6 +18,10 @@ module HerokuPostgresql
       http_put("#{@database_name}/ingress")
     end
 
+    def reset
+      http_put("#{@database_name}/reset")
+    end
+
     def get_database
       http_get(@database_name)
     end
