@@ -145,11 +145,12 @@ module Heroku::Command
       with_heroku_postgresql_database do |name, url|
         database = heroku_postgresql_client(url).get_database
         abort "The database is not available" unless database[:state] == "available"
-        display("Opening access to the database.")
+        redisplay("Granting ingress to #{name} for 60s...")
         heroku_postgresql_client(url).ingress
         url = URI.parse(url)
-        display("The database will accept new incoming connections for the next 60s.")
-        display("Connection info string: \"dbname=#{url.path[1..-1]} host=#{url.host} user=#{url.user} password=#{url.password}\"")
+        redisplay("Granting ingress to #{name} for 60s... done\n")
+        display("Connection info string:")
+        display("   \"dbname=#{url.path[1..-1]} host=#{url.host} user=#{url.user} password=#{url.password}\"")
       end
     end
 
