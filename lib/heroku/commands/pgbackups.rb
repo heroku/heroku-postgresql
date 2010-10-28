@@ -66,6 +66,7 @@ module Heroku::Command
 
     def restore
       db_id = extract_option("--db")
+      confirm = extract_option("--confirm")
       to_name, to_url = resolve_db_id(db_id, :default => "DATABASE_URL")
       db_id = to_name
 
@@ -101,6 +102,7 @@ module Heroku::Command
         display padding + "#{backup['size']}"
       end
 
+      @args += ['--confirm', confirm]
       if confirm_command
         restore = transfer!(from_url, from_name, to_url, to_name)
         restore = poll_transfer!(restore)
@@ -160,6 +162,13 @@ module Heroku::Command
 
       @ticks += 1
 
+      step_map = {
+        "dump"      => "Capturing",
+        "upload"    => "Storing",
+        "download"  => "Retreiving",
+        "restore"   => "Restoring",
+      }
+
       if !transfer["log"]
         @last_progress = ['pending', nil]
         redisplay "Pending... #{spinner(@ticks)}"
@@ -176,10 +185,11 @@ module Heroku::Command
 
           if ['done', 'error'].include? amount
             # step is done, explicitly print result and newline
-            redisplay "#{@last_progress[0].capitalize}... #{@last_progress[1]}, #{amount}\n"
+            redisplay "#{@last_progress[0].capitalize}... #{amount}\n"
           end
 
           # store progress, last one in the logs will get displayed
+          step = step_map[step] or step
           @last_progress = [step, amount]
         end
 
