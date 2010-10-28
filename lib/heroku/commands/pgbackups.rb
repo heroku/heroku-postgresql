@@ -6,11 +6,11 @@ module Heroku::Command
 
     Help.group("pgbackups") do |group|
       group.command "pgbackups",                                  "list captured backups"
-      group.command "pgbackups:capture [<DB_ID>]",                "capture a backup from database ID (e.g. DATABASE_URL)"
+      group.command "pgbackups:capture [<DB_ID>]",                "capture a backup from database ID (default: DATABASE_URL)"
       group.command "pgbackups:url [<BACKUP_ID>]",                "get a temporary URL for a backup"
       group.command "pgbackups:destroy <BACKUP_ID>",              "destroy a backup"
-      group.command "pgbackups:restore <BACKUP_ID> --db <DB_ID>", "restore the database ID (e.g. DATABASE_URL) from a backup"
-      group.command "pgbackups:restore <url> --db <DB_ID>",       "restore the database ID (e.g. DATABASE_URL) from a URL"
+      group.command "pgbackups:restore <BACKUP_ID> --db <DB_ID>", "restore the database ID (default: DATABASE_URL) from a backup"
+      group.command "pgbackups:restore <url> --db <DB_ID>",       "restore the database ID (default: DATABASE_URL) from a URL"
     end
 
     def initialize(*args)
