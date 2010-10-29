@@ -31,9 +31,10 @@ module PGBackups
       )
     end
 
-    def create_transfer(from_url, to_url, opts={})
+    def create_transfer(from_url, from_name, to_url, to_name, opts={})
+      # opts[:expire] => true will delete the oldest backup if at the plan limit
       resource = authenticated_resource("/client/transfers")
-      params = {:from_url => from_url, :to_url => to_url}.merge opts
+      params = {:from_url => from_url, :from_name => from_name, :to_url => to_url, :to_name => to_name}.merge opts
       JSON.parse resource.post(params).body
     end
 

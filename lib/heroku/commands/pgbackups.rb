@@ -47,6 +47,7 @@ module Heroku::Command
 
 
     def capture
+      expire = extract_option("--expire")
       db_id = args.shift
       from_name, from_url = resolve_db_id(db_id, :default => "DATABASE_URL")
       db_id ||= "DATABASE_URL"
@@ -54,9 +55,11 @@ module Heroku::Command
       to_name = "BACKUP"
       to_url = nil # server will assign
 
-      backup = transfer!(from_url, from_name, to_url, to_name)
+      opts = {}
+      opts[:expire] = true if expire
+      backup = transfer!(from_url, from_name, to_url, to_name, opts)
       to_uri = URI.parse backup["to_url"]
-      backup_id = File.basename(to_uri.path, '.*')
+      backup_id = to_uri.path.empty? ? "error" : File.basename(to_uri.path, '.*')
       display "\n#{db_id}  ----backup--->  #{backup_id}"
 
       backup = poll_transfer!(backup)
@@ -130,15 +133,18 @@ module Heroku::Command
       parts.slice(4..-1).join('/').gsub(/\.dump$/, '')
     end
 
-    def transfer!(from_url, from_name, to_url, to_name)
-      pgbackup_client.create_transfer(from_url, to_url, :from_name => from_name, :to_name => to_name)
+    def transfer!(from_url, from_name, to_url, to_name, opts={})
+      pgbackup_client.create_transfer(from_url, from_name, to_url, to_name, opts)
     end
 
     def poll_transfer!(transfer)
       display "\n"
 
       if transfer["errors"]
-        abort(transfer["errors"].values.flatten.join("\n") + "\n")
+        transfer["errors"].values.flatten.each { |e|
+          display " !    #{e}"
+        }
+        abort
       end
 
       while true
