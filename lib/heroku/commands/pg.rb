@@ -96,19 +96,32 @@ module Heroku::Command
     end
 
     def promote
-      name = args.shift
+      db_id = extract_option("--db")
+      (name, url) = resolve_db_id(db_id)
+
+      display "NAME: name"
+
+      if !name
+        puts "Usage: heroku pg:promote --db <DATABASE>"
+      end
+
       if name == "DATABASE_URL"
-        puts " !  This command promotes a database to DATABASE_URL." 
+        puts " !  This command promotes a database to DATABASE_URL."
         return
       end
 
-      (name, url) = resolve_db_id(name)
+      abort(" !   #{name} is already the DATABASE_URL.") if url == @config_vars["DATABASE_URL"]
 
-      if (url != @config_vars["DATABASE_URL"])
-        res = heroku.add_config_vars(app, {"DATABASE_URL" => url})
-      end
+      redisplay "Setting config variable DATABASE_URL to #{name}"
+      return unless confirm_command
+      redisplay "Setting config variable DATABASE_URL to #{name}..."
+
+      heroku.add_config_vars(app, {"DATABASE_URL" => url})
+
+      redisplay "Setting config variable DATABASE_URL to #{name}... done\n"
 
       display "DATABASE_URL (#{name})     => #{url}"
+      display ""
     end
 
     def reset

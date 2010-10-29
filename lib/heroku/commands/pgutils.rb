@@ -24,17 +24,27 @@ module PgUtils
     # if name is 'DATABASE_URL', try to return the addon config var name for better accounting
     output = nil
     addon_config_vars = pg_config_var_names - ["DATABASE_URL"]
-    addon_config_vars.each { |n|
+    addon_config_vars.each do |n|
       next unless @config_vars[n] == @config_vars[name]
       return n, @config_vars[n]
-    }
+    end
 
     # database url isn't an alias for another var
     return name, @config_vars[name] if name == "DATABASE_URL"
 
-    abort("Database #{name} not found in config. (Options are: #{pg_config_var_names.join(', ')})") if name
-    abort(" !   Rerun this command with a database to promote: \n !   #{pg_config_var_names.join(', ')}") unless opts[:default]
-
+    if name
+      display " !   Database #{name} not found in config."
+    else
+      display " !   This command requires a database to operate on."
+    end
+    display " !   "
+    display " !   Available database URLs:"
+    addon_config_vars.each do |v|
+      str = " !   #{v}"
+      str += " (currently DATABASE_URL)" if @config_vars[v] == @config_vars["DATABASE_URL"]
+      display str
+    end
+    abort ""
   end
 
 end
