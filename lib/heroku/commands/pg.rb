@@ -73,6 +73,47 @@ module Heroku::Command
       end
     end
 
+    def promote
+      db_id = extract_option("--db")
+      (name, url) = resolve_db_id(db_id, :usage_message => " !   Usage: heroku pg:promote --db <DATABASE>")
+
+      if name == "DATABASE_URL"
+        puts " !  This command promotes a database to DATABASE_URL."
+        return
+      end
+
+      abort(" !   #{name} is already the DATABASE_URL.") if url == @config_vars["DATABASE_URL"]
+
+      display "Setting config variable DATABASE_URL to #{name}", false
+      return unless confirm_command
+      display "... "
+
+      heroku.add_config_vars(app, {"DATABASE_URL" => url})
+
+      display "done"
+
+      display "DATABASE_URL (#{name})     => #{url}"
+      display ""
+    end
+
+    def reset
+      db_id = extract_option("--db")
+      (name, url, primary) = resolve_db_id(db_id, :usage_message => " !   Usage: heroku pg:reset --db <DATABASE>")
+
+      redisplay "Resetting #{name}#{primary ? ' (DATABASE_URL)' : ''}", false
+
+      if confirm_command
+        display "... ", false
+        # support legacy database reset
+        if name == "SHARED_DATABASE_URL"
+          heroku.database_reset(app)
+        else
+          heroku_postgresql_client(url).reset
+        end
+        display "done"
+      end
+    end
+
     # TODO: this should check that no heroku database is pre-running
     def wait
       with_heroku_postgresql_database do |name, url|
@@ -91,49 +132,6 @@ module Heroku::Command
           else
             redisplay("#{state.capitalize} database #{spinner(ticks)}", false)
           end
-        end
-      end
-    end
-
-    def promote
-      db_id = extract_option("--db")
-      (name, url) = resolve_db_id(db_id)
-
-      display "NAME: name"
-
-      if !name
-        puts "Usage: heroku pg:promote --db <DATABASE>"
-      end
-
-      if name == "DATABASE_URL"
-        puts " !  This command promotes a database to DATABASE_URL."
-        return
-      end
-
-      abort(" !   #{name} is already the DATABASE_URL.") if url == @config_vars["DATABASE_URL"]
-
-      redisplay "Setting config variable DATABASE_URL to #{name}"
-      return unless confirm_command
-      redisplay "Setting config variable DATABASE_URL to #{name}..."
-
-      heroku.add_config_vars(app, {"DATABASE_URL" => url})
-
-      redisplay "Setting config variable DATABASE_URL to #{name}... done\n"
-
-      display "DATABASE_URL (#{name})     => #{url}"
-      display ""
-    end
-
-    def reset
-      with_heroku_postgresql_database do |name, url|
-        display ""
-        display "#{name}  ---reset--->  #{name}"
-        display ""
-
-        if confirm_command
-          display("Resetting...")
-          heroku_postgresql_client(url).reset
-          redisplay("Resetting... done")
         end
       end
     end
