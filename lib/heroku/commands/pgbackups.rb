@@ -69,7 +69,7 @@ module Heroku::Command
 
     def restore
       db_id = extract_option("--db")
-      confirm = extract_option("--confirm")
+      confirm = extract_option("--confirm", "")
       to_name, to_url = resolve_db_id(db_id, :default => "DATABASE_URL")
       db_id = to_name
 
