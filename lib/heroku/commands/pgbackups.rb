@@ -173,6 +173,8 @@ module Heroku::Command
         "upload"    => "Storing",
         "download"  => "Retreiving",
         "restore"   => "Restoring",
+        "gunzip"    => "Decompressing",
+        "load"      => "Restoring",
       }
 
       if !transfer["log"]
@@ -195,7 +197,7 @@ module Heroku::Command
           end
 
           # store progress, last one in the logs will get displayed
-          step = step_map[step] or step
+          step = step_map[step] || step
           @last_progress = [step, amount]
         end
 
